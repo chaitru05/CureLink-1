@@ -11,7 +11,10 @@ const UserSchema = new mongoose.Schema({
 
   availability: [
     {
-      day: String,
+      date: {
+        type: Date,
+        required: true
+      },
       slots: [
         {
           startTime: String,
