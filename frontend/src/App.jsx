@@ -1,6 +1,6 @@
 "use client"
 
-import { Routes, Route, Navigate } from "react-router-dom"
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom"
 
 import PatientAuth from "./components/PatientAuth"
 import DoctorAuth from "./components/DoctorAuth"
@@ -12,18 +12,30 @@ import AdminDashboard from "./components/AdminDashboard"
 
 import ProtectedRoute from "./components/ProtectedRoute"
 
-function App() {
+function AppRoutes() {
+  const navigate = useNavigate()
+
+  // ✅ THIS FIXES onRoleChange
+  const handleRoleChange = (role) => {
+    if (role === "patient") navigate("/")
+    if (role === "doctor") navigate("/doctor-login")
+    if (role === "admin") navigate("/admin-login")
+  }
+
   return (
     <Routes>
 
       {/* ================= AUTH ROUTES ================= */}
-      <Route path="/" element={<PatientAuth />} />
-      <Route path="/doctor-login" element={<DoctorAuth />} />
-      <Route path="/admin-login" element={<AdminAuth />} />
+      <Route
+        path="/"
+        element={<PatientAuth onRoleChange={handleRoleChange} />}
+      />
+
+      <Route path="/doctor-login" element={<DoctorAuth onRoleChange={handleRoleChange} />} />
+      <Route path="/admin-login" element={<AdminAuth onRoleChange={handleRoleChange} />} />
 
       {/* ================= DASHBOARD ROUTES ================= */}
 
-      {/* ✅ PATIENT DASHBOARD */}
       <Route
         path="/patient-dashboard"
         element={
@@ -33,7 +45,6 @@ function App() {
         }
       />
 
-      {/* DOCTOR DASHBOARD */}
       <Route
         path="/doctor-dashboard"
         element={
@@ -43,7 +54,6 @@ function App() {
         }
       />
 
-      {/* ADMIN DASHBOARD */}
       <Route
         path="/admin-dashboard"
         element={
@@ -60,4 +70,4 @@ function App() {
   )
 }
 
-export default App
+export default AppRoutes
