@@ -20,7 +20,7 @@ router.post(
 
 // Patient
 router.get(
-  "/patient/:patientId",
+  "/patient",
   protect,
   authorizeRoles("patient"),
   getPatientRecords

@@ -1,47 +1,75 @@
 import MedicalRecord from "../models/MedicalRecord.js"
 import MedicineReminder from "../models/MedicineReminder.js"
 
+/* ================= ADD MEDICAL RECORD (DOCTOR) ================= */
 export const addMedicalRecord = async (req, res) => {
-  const record = await MedicalRecord.create({
-    ...req.body,
-    doctorId: req.user.id
-  })
+  try {
+    const record = await MedicalRecord.create({
+      ...req.body,
+      doctorId: req.user.id
+    })
 
-  // Generate reminders
-  for (const med of record.prescriptions) {
-    for (let day = 0; day < med.durationInDays; day++) {
-      const reminderDate = new Date(med.startDate)
-      reminderDate.setDate(reminderDate.getDate() + day)
+    /* ===== Generate medicine reminders safely ===== */
+    if (Array.isArray(record.prescriptions)) {
+      for (const med of record.prescriptions) {
 
-      for (const t of med.times) {
-        await MedicineReminder.create({
-          patientId: record.patientId,
-          medicineName: med.medicineName,
-          dosage: med.dosage,
-          reminderDate,
-          reminderTime: t.time
-        })
+        if (!med.startDate || !med.durationInDays || !Array.isArray(med.times)) {
+          continue // skip invalid prescription
+        }
+
+        for (let day = 0; day < med.durationInDays; day++) {
+          const reminderDate = new Date(med.startDate)
+          reminderDate.setDate(reminderDate.getDate() + day)
+
+          for (const t of med.times) {
+            await MedicineReminder.create({
+              patientId: record.patientId,
+              medicineName: med.medicineName,
+              dosage: med.dosage,
+              reminderDate,
+              reminderTime: t.time
+            })
+          }
+        }
       }
     }
+
+    res.status(201).json(record)
+
+  } catch (err) {
+    console.error("Add medical record error:", err)
+    res.status(500).json({ message: "Failed to add medical record" })
   }
-
-  res.status(201).json(record)
 }
 
-// GET PATIENT MEDICAL HISTORY
+/* ================= GET PATIENT RECORDS ================= */
 export const getPatientRecords = async (req, res) => {
-  const records = await MedicalRecord.find({
-    patientId: req.params.patientId
-  }).populate("doctorId", "name specialization")
+  try {
+    const records = await MedicalRecord.find({
+      patientId: req.user.id   // ✅ FIXED
+    })
+      .populate("doctorId", "name specialization")
+      .sort({ createdAt: -1 })
 
-  res.json(records)
+    res.json(records)
+
+  } catch (err) {
+    console.error("Fetch patient records error:", err)
+    res.status(500).json({ message: "Failed to fetch records" })
+  }
 }
 
-// GET RECORD BY APPOINTMENT
+/* ================= GET RECORD BY APPOINTMENT ================= */
 export const getRecordByAppointment = async (req, res) => {
-  const record = await MedicalRecord.findOne({
-    appointmentId: req.params.appointmentId
-  })
+  try {
+    const record = await MedicalRecord.findOne({
+      appointmentId: req.params.appointmentId
+    })
 
-  res.json(record)
+    res.json(record)
+
+  } catch (err) {
+    console.error("Fetch record by appointment error:", err)
+    res.status(500).json({ message: "Failed to fetch record" })
+  }
 }

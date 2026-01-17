@@ -16,18 +16,27 @@ export const bookAppointment = async (req, res) => {
     } = req.body
 
     const startTime = timeSlot.split(" - ")[0]
-    const dateOnly = new Date(appointmentDate)
-    dateOnly.setHours(0, 0, 0, 0)
 
-    // 🔐 Lock slot using DATE + TIME
+    // ✅ Date range (timezone-safe)
+    const startOfDay = new Date(appointmentDate)
+    startOfDay.setHours(0, 0, 0, 0)
+
+    const endOfDay = new Date(appointmentDate)
+    endOfDay.setHours(23, 59, 59, 999)
+
+    // 🔒 ATOMIC SLOT LOCK
     const updatedDoctor = await User.findOneAndUpdate(
       {
         _id: doctorId,
-        "availability.date": dateOnly,
-        "availability.slots": {
+        availability: {
           $elemMatch: {
-            startTime,
-            isBooked: false
+            date: { $gte: startOfDay, $lte: endOfDay },
+            slots: {
+              $elemMatch: {
+                startTime,
+                isBooked: false
+              }
+            }
           }
         }
       },
@@ -38,7 +47,7 @@ export const bookAppointment = async (req, res) => {
       },
       {
         arrayFilters: [
-          { "day.date": dateOnly },
+          { "day.date": { $gte: startOfDay, $lte: endOfDay } },
           { "slot.startTime": startTime }
         ],
         new: true,
@@ -47,19 +56,21 @@ export const bookAppointment = async (req, res) => {
     )
 
     if (!updatedDoctor) {
-      throw new Error("Time slot already booked or unavailable")
+      throw new Error("Time slot already booked")
     }
 
     const appointment = await Appointment.create(
-      [{
-        patientId: req.user.id,
-        doctorId,
-        appointmentDate: dateOnly,
-        timeSlot,
-        consultationType,
-        reasonForVisit,
-        status: "confirmed"
-      }],
+      [
+        {
+          patientId: req.user.id,
+          doctorId,
+          appointmentDate,
+          timeSlot,
+          consultationType,
+          reasonForVisit,
+          status: "confirmed"
+        }
+      ],
       { session }
     )
 
@@ -73,6 +84,7 @@ export const bookAppointment = async (req, res) => {
     session.endSession()
   }
 }
+
 
 
 // GET PATIENT APPOINTMENTS
@@ -108,23 +120,23 @@ export const cancelAppointment = async (req, res) => {
   const appointment = await Appointment.findById(req.params.id)
 
   const startTime = appointment.timeSlot.split(" - ")[0]
-  const dateOnly = new Date(appointment.appointmentDate)
-  dateOnly.setHours(0, 0, 0, 0)
+  const appointmentDay = new Date(appointment.appointmentDate)
+   appointmentDay.setHours(0, 0, 0, 0)
 
-  await User.updateOne(
-    { _id: appointment.doctorId },
-    {
-      $set: {
-        "availability.$[day].slots.$[slot].isBooked": false
-      }
-    },
-    {
-      arrayFilters: [
-        { "day.date": dateOnly },
-        { "slot.startTime": startTime }
-      ]
+await User.updateOne(
+  { _id: appointment.doctorId },
+  {
+    $set: {
+      "availability.$[day].slots.$[slot].isBooked": false
     }
-  )
+  },
+  {
+    arrayFilters: [
+      { "day.date": appointmentDay },
+      { "slot.startTime": startTime }
+    ]
+  }
+)
 
   appointment.status = "cancelled"
   await appointment.save()

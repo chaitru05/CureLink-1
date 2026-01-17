@@ -1,20 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import "./AuthPage.css"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import axios from "../api/axiosInstance"
-
-// Optional Google Auth
-import {
-  GoogleAuthProvider,
-  signInWithRedirect,
-  onAuthStateChanged
-} from "firebase/auth"
-import { auth } from "../firebase"
+import "./AuthPage.css"
 
 export default function PatientAuth({ onRoleChange }) {
   const navigate = useNavigate()
+
   const [isLogin, setIsLogin] = useState(true)
   const [loading, setLoading] = useState(false)
 
@@ -29,7 +22,7 @@ export default function PatientAuth({ onRoleChange }) {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
-  /* ================= EMAIL / PASSWORD ================= */
+  /* ================= AUTH ================= */
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -51,7 +44,11 @@ export default function PatientAuth({ onRoleChange }) {
 
       const { data } = await axios.post(url, payload)
 
-      // ✅ Save real backend data
+      // 🔐 SAFETY CHECK (VERY IMPORTANT)
+      if (!data.token) {
+        throw new Error("JWT token missing from backend response")
+      }
+
       localStorage.setItem("token", data.token)
       localStorage.setItem("role", "patient")
       localStorage.setItem("user", JSON.stringify(data.user))
@@ -59,38 +56,12 @@ export default function PatientAuth({ onRoleChange }) {
       navigate("/patient-dashboard")
 
     } catch (err) {
-      alert(err.response?.data?.message || "Authentication failed")
+      console.error(err)
+      alert(err.response?.data?.message || err.message || "Authentication failed")
     } finally {
       setLoading(false)
     }
   }
-
-  /* ================= GOOGLE LOGIN ================= */
-  const provider = new GoogleAuthProvider()
-
-  const handleGoogleLogin = async () => {
-    await signInWithRedirect(auth, provider)
-  }
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const firebaseToken = await user.getIdToken()
-
-        const { data } = await axios.post("/auth/google-login", {
-          token: firebaseToken
-        })
-
-        localStorage.setItem("token", data.token)
-        localStorage.setItem("role", "patient")
-        localStorage.setItem("user", JSON.stringify(data.user))
-
-        navigate("/patient-dashboard")
-      }
-    })
-
-    return () => unsubscribe()
-  }, [navigate])
 
   /* ================= UI ================= */
   return (
@@ -99,10 +70,16 @@ export default function PatientAuth({ onRoleChange }) {
 
         {/* Toggle */}
         <div className="toggle-wrapper">
-          <button onClick={() => setIsLogin(true)} className={isLogin ? "active" : ""}>
+          <button
+            onClick={() => setIsLogin(true)}
+            className={isLogin ? "active" : ""}
+          >
             Login
           </button>
-          <button onClick={() => setIsLogin(false)} className={!isLogin ? "active" : ""}>
+          <button
+            onClick={() => setIsLogin(false)}
+            className={!isLogin ? "active" : ""}
+          >
             Sign Up
           </button>
         </div>
@@ -149,11 +126,6 @@ export default function PatientAuth({ onRoleChange }) {
           <span onClick={() => onRoleChange("doctor")}> Doctor </span> |
           <span onClick={() => onRoleChange("admin")}> Admin </span>
         </p>
-
-        {/* Google */}
-        <button className="google-btn" onClick={handleGoogleLogin}>
-          Continue with Google
-        </button>
 
       </div>
     </div>
