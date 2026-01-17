@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import axiosInstance from "../api/axiosInstance"
 import DoctorSidebar from "./DoctorSidebar"
 import "./DoctorDashboard.css"
+import { fetchDoctorAvailability, updateDoctorAvailability } from "../api/doctorApi" // ✅ imported API functions
 
 export default function DoctorDashboard() {
   const navigate = useNavigate()
@@ -24,7 +25,7 @@ export default function DoctorDashboard() {
 
   // Availability
   const [selectedDate, setSelectedDate] = useState("")
-  const [availableSlots, setAvailableSlots] = useState([])
+  const [availableSlots, setAvailableSlots] = useState([]) // ✅ will use API functions
   const [newSlot, setNewSlot] = useState({ startTime: "", endTime: "" })
 
   // Patient Records
@@ -67,7 +68,7 @@ export default function DoctorDashboard() {
     } else if (activeSection === "availability") {
       const today = new Date().toISOString().split("T")[0]
       setSelectedDate(today)
-      loadAvailability(today)
+      loadAvailability(today) // ✅ updated
     } else if (activeSection === "records") {
       loadPatients()
     } else if (activeSection === "calendar") {
@@ -156,27 +157,25 @@ export default function DoctorDashboard() {
     }
   }
 
+  // ✅ Updated: Load Availability using doctorApi function
   const loadAvailability = async (date) => {
-  try {
-    const user = JSON.parse(localStorage.getItem("user"))
-    if (!user?._id) return
+    try {
+      const user = JSON.parse(localStorage.getItem("user"))
+      if (!user?._id) return
 
-    const res = await axiosInstance.get(
-      `/doctors/${user._id}/availability?date=${date}`
-    )
-
-    setAvailability(res.data || [])
-  } catch (err) {
-    console.error("Error loading availability:", err)
+      const slots = await fetchDoctorAvailability(user._id) // use API function
+      setAvailableSlots(slots || [])
+    } catch (err) {
+      console.error("Error loading availability:", err)
+    }
   }
-}
-
 
   const handleDateChange = (date) => {
     setSelectedDate(date)
     loadAvailability(date)
   }
 
+  // ✅ Updated: Add Slot using doctorApi function
   const handleAddSlot = async () => {
     if (!newSlot.startTime || !newSlot.endTime) {
       setError("Please provide both start and end time")
@@ -186,10 +185,10 @@ export default function DoctorDashboard() {
     try {
       setLoading(true)
       setError(null)
-      await axiosInstance.put("/doctors/availability", {
-        date: selectedDate,
-        slots: [...availableSlots, { startTime: newSlot.startTime, endTime: newSlot.endTime }],
-      })
+
+      const updatedSlots = [...availableSlots, { startTime: newSlot.startTime, endTime: newSlot.endTime }]
+      await updateDoctorAvailability(updatedSlots) // use API function
+
       setNewSlot({ startTime: "", endTime: "" })
       loadAvailability(selectedDate)
     } catch (err) {
@@ -200,15 +199,15 @@ export default function DoctorDashboard() {
     }
   }
 
+  // ✅ Updated: Remove Slot using doctorApi function
   const handleRemoveSlot = async (slotId) => {
     try {
       setLoading(true)
       setError(null)
+
       const updatedSlots = availableSlots.filter((slot) => slot._id !== slotId)
-      await axiosInstance.put("/doctors/availability", {
-        date: selectedDate,
-        slots: updatedSlots,
-      })
+      await updateDoctorAvailability(updatedSlots) // use API function
+
       loadAvailability(selectedDate)
     } catch (err) {
       console.error("Error removing slot:", err)
