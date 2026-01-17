@@ -10,25 +10,31 @@ export const fetchDoctors = async () => {
   return response.data;
 };
 
-// Get a doctor's availability (Patient)
-export const fetchDoctorAvailability = async (doctorId) => {
+// Get a doctor's availability (Patient view or Doctor's own view)
+export const fetchDoctorAvailability = async (doctorId, date = null) => {
   if (!doctorId) throw new Error("Doctor ID is required");
 
-  const response = await axiosInstance.get(
-    `/doctors/${doctorId}/availability`
-  );
-  return response.data;
+  const response = await axiosInstance.get(`/doctors/${doctorId}/availability`);
+  const availability = response.data || [];
+
+  // If a date is provided, return only that day's slots
+  if (date) {
+    const dayAvailability = availability.find((a) => a.date === date);
+    return dayAvailability ? dayAvailability.slots : [];
+  }
+
+  return availability;
 };
 
 // Update availability (Doctor)
-export const updateDoctorAvailability = async (availability) => {
-  if (!Array.isArray(availability)) {
+export const updateDoctorAvailability = async (slots, date = null) => {
+  if (!Array.isArray(slots)) {
     throw new Error("Availability must be an array");
   }
 
-  const response = await axiosInstance.put("/doctors/availability", {
-    availability,
-  });
+  // Backend expects { date, slots } format
+  const payload = date ? { date, slots } : { slots };
 
+  const response = await axiosInstance.put("/doctors/availability", payload);
   return response.data;
 };
