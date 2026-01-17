@@ -13,9 +13,12 @@ export const bookAppointment = async (req, res) => {
     const { doctorId, appointmentDate, timeSlot, consultationType, reasonForVisit } = req.body;
     const startTime = timeSlot.split(" - ")[0].trim();
 
-    // UTC-safe date
-    const appointmentDay = new Date(appointmentDate);
-    appointmentDay.setUTCHours(0, 0, 0, 0);
+    // Date range for matching any time on the appointment day
+    const startOfDay = new Date(appointmentDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(appointmentDate);
+    endOfDay.setHours(23, 59, 59, 999);
 
     // Atomic slot booking
     const updatedDoctor = await User.findOneAndUpdate(
@@ -23,7 +26,7 @@ export const bookAppointment = async (req, res) => {
         _id: doctorId,
         availability: {
           $elemMatch: {
-            date: appointmentDay,
+            date: { $gte: startOfDay, $lte: endOfDay },
             slots: { $elemMatch: { startTime, isBooked: false } }
           }
         }
@@ -33,7 +36,7 @@ export const bookAppointment = async (req, res) => {
       },
       {
         arrayFilters: [
-          { "day.date": appointmentDay },
+          { "day.date": { $gte: startOfDay, $lte: endOfDay } },
           { "slot.startTime": startTime }
         ],
         new: true,
@@ -50,7 +53,7 @@ export const bookAppointment = async (req, res) => {
         {
           patientId: req.user.id,
           doctorId,
-          appointmentDate: appointmentDay,
+          appointmentDate: startOfDay,
           timeSlot,
           consultationType,
           reasonForVisit,
@@ -84,7 +87,7 @@ export const cancelAppointment = async (req, res) => {
 
     const startTime = appointment.timeSlot.split(" - ")[0].trim();
     const appointmentDay = new Date(appointment.appointmentDate);
-    appointmentDay.setUTCHours(0, 0, 0, 0);
+    appointmentDay.setHours(0, 0, 0, 0);
 
     // Release slot atomically
     const updatedDoctor = await User.updateOne(
@@ -92,7 +95,7 @@ export const cancelAppointment = async (req, res) => {
       { $set: { "availability.$[day].slots.$[slot].isBooked": false } },
       {
         arrayFilters: [
-          { "day.date": appointmentDay },
+          { "day.date": { $gte: appointmentDay, $lte: appointmentDay } },
           { "slot.startTime": startTime }
         ],
         session
