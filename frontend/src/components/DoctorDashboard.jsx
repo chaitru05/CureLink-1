@@ -157,65 +157,63 @@ export default function DoctorDashboard() {
     }
   }
 
-  // ✅ Updated: Load Availability using doctorApi function
-  const loadAvailability = async (date) => {
-    try {
-      const user = JSON.parse(localStorage.getItem("user"))
-      if (!user?._id) return
+// ✅ Load Availability for selected date
+const loadAvailability = async (date) => {
+  try {
+    const user = JSON.parse(localStorage.getItem("user"))
+    if (!user?._id) return
 
-      const slots = await fetchDoctorAvailability(user._id) // use API function
-      setAvailableSlots(slots || [])
-    } catch (err) {
-      console.error("Error loading availability:", err)
-    }
+    // Fetch slots for the specific date
+    const slots = await fetchDoctorAvailability(user._id, date)
+    setAvailableSlots(slots || [])
+  } catch (err) {
+    console.error("Error loading availability:", err)
+  }
+}
+
+// ✅ Add a new slot for selected date
+const handleAddSlot = async () => {
+  if (!newSlot.startTime || !newSlot.endTime) {
+    setError("Please provide both start and end time")
+    return
   }
 
-  const handleDateChange = (date) => {
-    setSelectedDate(date)
-    loadAvailability(date)
+  try {
+    setLoading(true)
+    setError(null)
+
+    // Add the new slot to the existing slots for this date
+    const updatedSlots = [...availableSlots, { startTime: newSlot.startTime, endTime: newSlot.endTime }]
+    await updateDoctorAvailability(updatedSlots, selectedDate) // Pass date here!
+
+    setNewSlot({ startTime: "", endTime: "" })
+    loadAvailability(selectedDate)
+  } catch (err) {
+    console.error("Error adding slot:", err)
+    setError(err.response?.data?.message || "Failed to add time slot. Please try again.")
+  } finally {
+    setLoading(false)
   }
+}
 
-  // ✅ Updated: Add Slot using doctorApi function
-  const handleAddSlot = async () => {
-    if (!newSlot.startTime || !newSlot.endTime) {
-      setError("Please provide both start and end time")
-      return
-    }
+// ✅ Remove a slot for selected date
+const handleRemoveSlot = async (slotId) => {
+  try {
+    setLoading(true)
+    setError(null)
 
-    try {
-      setLoading(true)
-      setError(null)
+    // Remove the selected slot from the slots of this date
+    const updatedSlots = availableSlots.filter((slot) => slot._id !== slotId && slot.id !== slotId)
+    await updateDoctorAvailability(updatedSlots, selectedDate) // Pass date here!
 
-      const updatedSlots = [...availableSlots, { startTime: newSlot.startTime, endTime: newSlot.endTime }]
-      await updateDoctorAvailability(updatedSlots) // use API function
-
-      setNewSlot({ startTime: "", endTime: "" })
-      loadAvailability(selectedDate)
-    } catch (err) {
-      console.error("Error adding slot:", err)
-      setError(err.response?.data?.message || "Failed to add time slot. Please try again.")
-    } finally {
-      setLoading(false)
-    }
+    loadAvailability(selectedDate)
+  } catch (err) {
+    console.error("Error removing slot:", err)
+    setError(err.response?.data?.message || "Failed to remove time slot. Please try again.")
+  } finally {
+    setLoading(false)
   }
-
-  // ✅ Updated: Remove Slot using doctorApi function
-  const handleRemoveSlot = async (slotId) => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      const updatedSlots = availableSlots.filter((slot) => slot._id !== slotId)
-      await updateDoctorAvailability(updatedSlots) // use API function
-
-      loadAvailability(selectedDate)
-    } catch (err) {
-      console.error("Error removing slot:", err)
-      setError(err.response?.data?.message || "Failed to remove time slot. Please try again.")
-    } finally {
-      setLoading(false)
-    }
-  }
+}
 
   const loadPatients = async () => {
     try {
