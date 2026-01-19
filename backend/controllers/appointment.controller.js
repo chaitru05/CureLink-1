@@ -1,49 +1,38 @@
-import mongoose from "mongoose"
-import Appointment from "../models/Appointment.js"
-import User from "../models/User.js"
+import mongoose from "mongoose";
+import Appointment from "../models/Appointment.js";
+import User from "../models/User.js";
 
+// ---------------------------
+// BOOK APPOINTMENT (Atomic)
+// ---------------------------
 export const bookAppointment = async (req, res) => {
-  const session = await mongoose.startSession()
-  session.startTransaction()
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
   try {
-    const {
-      doctorId,
-      appointmentDate,
-      timeSlot,
-      consultationType,
-      reasonForVisit
-    } = req.body
+    const { doctorId, appointmentDate, timeSlot, consultationType, reasonForVisit } = req.body;
+    const startTime = timeSlot.split(" - ")[0].trim();
 
-    const startTime = timeSlot.split(" - ")[0]
+    // Date range for matching any time on the appointment day
+    const startOfDay = new Date(appointmentDate);
+    startOfDay.setHours(0, 0, 0, 0);
 
-    // ✅ Date range (timezone-safe)
-    const startOfDay = new Date(appointmentDate)
-    startOfDay.setHours(0, 0, 0, 0)
+    const endOfDay = new Date(appointmentDate);
+    endOfDay.setHours(23, 59, 59, 999);
 
-    const endOfDay = new Date(appointmentDate)
-    endOfDay.setHours(23, 59, 59, 999)
-
-    // 🔒 ATOMIC SLOT LOCK
+    // Atomic slot booking
     const updatedDoctor = await User.findOneAndUpdate(
       {
         _id: doctorId,
         availability: {
           $elemMatch: {
             date: { $gte: startOfDay, $lte: endOfDay },
-            slots: {
-              $elemMatch: {
-                startTime,
-                isBooked: false
-              }
-            }
+            slots: { $elemMatch: { startTime, isBooked: false } }
           }
         }
       },
       {
-        $set: {
-          "availability.$[day].slots.$[slot].isBooked": true
-        }
+        $set: { "availability.$[day].slots.$[slot].isBooked": true }
       },
       {
         arrayFilters: [
@@ -53,10 +42,10 @@ export const bookAppointment = async (req, res) => {
         new: true,
         session
       }
-    )
+    );
 
     if (!updatedDoctor) {
-      throw new Error("Time slot already booked")
+      throw new Error("Time slot already booked or unavailable. Please choose another slot.");
     }
 
     const appointment = await Appointment.create(
@@ -64,7 +53,7 @@ export const bookAppointment = async (req, res) => {
         {
           patientId: req.user.id,
           doctorId,
-          appointmentDate,
+          appointmentDate: startOfDay,
           timeSlot,
           consultationType,
           reasonForVisit,
@@ -72,29 +61,29 @@ export const bookAppointment = async (req, res) => {
         }
       ],
       { session }
-    )
+    );
 
-    await session.commitTransaction()
-    res.status(201).json(appointment[0])
+    await session.commitTransaction();
+    res.status(201).json({ message: "Appointment booked successfully", appointment: appointment[0] });
 
   } catch (error) {
-    await session.abortTransaction()
-    res.status(409).json({ message: error.message })
+    await session.abortTransaction();
+    res.status(409).json({ message: error.message });
   } finally {
-    session.endSession()
+    session.endSession();
   }
 }
 
 
 
 // GET PATIENT APPOINTMENTS
-export const getPatientAppointments = async (req, res) => {
-  const appointments = await Appointment.find({
-    patientId: req.user.id
-  }).populate("doctorId", "name specialization")
+// export const getPatientAppointments = async (req, res) => {
+//   const appointments = await Appointment.find({
+//     patientId: req.user.id
+//   }).populate("doctorId", "name specialization")
 
-  res.json(appointments)
-}
+//   res.json(appointments)
+// }
 
 // GET DOCTOR APPOINTMENTS
 export const getDoctorAppointments = async (req, res) => {
@@ -123,31 +112,97 @@ export const updateAppointmentStatus = async (req, res) => {
   res.json(appointment)
 }
 
+// ---------------------------
+// CANCEL APPOINTMENT
+// ---------------------------
 export const cancelAppointment = async (req, res) => {
-  const appointment = await Appointment.findById(req.params.id)
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  const startTime = appointment.timeSlot.split(" - ")[0]
-  const appointmentDay = new Date(appointment.appointmentDate)
-   appointmentDay.setHours(0, 0, 0, 0)
+  try {
+    const appointment = await Appointment.findById(req.params.id).session(session);
+    if (!appointment) throw new Error("Appointment not found");
 
-await User.updateOne(
-  { _id: appointment.doctorId },
-  {
-    $set: {
-      "availability.$[day].slots.$[slot].isBooked": false
+    const startTime = appointment.timeSlot.split(" - ")[0].trim();
+    const appointmentDay = new Date(appointment.appointmentDate);
+    appointmentDay.setHours(0, 0, 0, 0);
+
+    // Release slot atomically
+    const updatedDoctor = await User.updateOne(
+      { _id: appointment.doctorId },
+      { $set: { "availability.$[day].slots.$[slot].isBooked": false } },
+      {
+        arrayFilters: [
+          { "day.date": { $gte: appointmentDay, $lte: appointmentDay } },
+          { "slot.startTime": startTime }
+        ],
+        session
+      }
+    );
+
+    if (updatedDoctor.modifiedCount === 0) {
+      throw new Error("Slot release failed. Please check doctor availability.");
     }
-  },
-  {
-    arrayFilters: [
-      { "day.date": appointmentDay },
-      { "slot.startTime": startTime }
-    ]
+
+    appointment.status = "cancelled";
+    await appointment.save({ session });
+
+    await session.commitTransaction();
+    res.json({ message: "Appointment cancelled and slot released", appointment });
+
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(500).json({ message: error.message });
+  } finally {
+    session.endSession();
   }
-)
+};
 
-  appointment.status = "cancelled"
-  await appointment.save()
+// ---------------------------
+// GET PATIENT APPOINTMENTS
+// ---------------------------
+export const getPatientAppointments = async (req, res) => {
+  try {
+    const appointments = await Appointment.find({ patientId: req.user.id })
+      .populate("doctorId", "name specialization")
+      .sort({ appointmentDate: 1, timeSlot: 1 });
 
-  res.json({ message: "Appointment cancelled and slot released" })
-}
+    res.json(appointments);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching patient appointments" });
+  }
+};
 
+// ---------------------------
+// GET DOCTOR APPOINTMENTS
+// ---------------------------
+// export const getDoctorAppointments = async (req, res) => {
+//   try {
+//     const appointments = await Appointment.find({ doctorId: req.user.id })
+//       .populate("patientId", "name age")
+//       .sort({ appointmentDate: 1, timeSlot: 1 });
+
+//     res.json(appointments);
+//   } catch (error) {
+//     res.status(500).json({ message: "Error fetching doctor appointments" });
+//   }
+// };
+
+// ---------------------------
+// UPDATE APPOINTMENT STATUS
+// ---------------------------
+// export const updateAppointmentStatus = async (req, res) => {
+//   try {
+//     const appointment = await Appointment.findByIdAndUpdate(
+//       req.params.id,
+//       { status: req.body.status },
+//       { new: true }
+//     );
+
+//     if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+
+//     res.json({ message: "Appointment status updated", appointment });
+//   } catch (error) {
+//     res.status(500).json({ message: "Error updating appointment status" });
+//   }
+// };

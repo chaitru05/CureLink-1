@@ -30,7 +30,7 @@ export default function DoctorDashboard() {
 
   // Availability
   const [selectedDate, setSelectedDate] = useState("")
-  const [availableSlots, setAvailableSlots] = useState([])
+  const [availableSlots, setAvailableSlots] = useState([]) // ✅ will use API functions
   const [newSlot, setNewSlot] = useState({ startTime: "", endTime: "" })
 
   // Patient Records
@@ -107,7 +107,7 @@ const [selectedAppointment, setSelectedAppointment] = useState(null)
     } else if (activeSection === "availability") {
       const today = new Date().toISOString().split("T")[0]
       setSelectedDate(today)
-      loadAvailability(today)
+      loadAvailability(today) // ✅ updated
     } else if (activeSection === "records") {
       loadPatients()
     } else if (activeSection === "calendar") {
@@ -196,7 +196,8 @@ const [selectedAppointment, setSelectedAppointment] = useState(null)
     }
   }
 
-  const loadAvailability = async (date) => {
+// ✅ Load Availability for selected date
+const loadAvailability = async (date) => {
   try {
     const res = await axiosInstance.get(`/doctors/availability`)
 
@@ -253,23 +254,26 @@ const handleAddSlot = async () => {
   }
 }
 
-  const handleRemoveSlot = async (slotId) => {
-    try {
-      setLoading(true)
-      setError(null)
-      const updatedSlots = availableSlots.filter((slot) => slot._id !== slotId)
-      await axiosInstance.put("/doctors/availability", {
-        date: selectedDate,
-        slots: updatedSlots,
-      })
-      loadAvailability(selectedDate)
-    } catch (err) {
-      console.error("Error removing slot:", err)
-      setError(err.response?.data?.message || "Failed to remove time slot. Please try again.")
-    } finally {
-      setLoading(false)
-    }
+
+
+// ✅ Remove a slot for selected date
+const handleRemoveSlot = async (slotId) => {
+  try {
+    setLoading(true)
+    setError(null)
+
+    // Remove the selected slot from the slots of this date
+    const updatedSlots = availableSlots.filter((slot) => slot._id !== slotId && slot.id !== slotId)
+    await updateDoctorAvailability(updatedSlots, selectedDate) // Pass date here!
+
+    loadAvailability(selectedDate)
+  } catch (err) {
+    console.error("Error removing slot:", err)
+    setError(err.response?.data?.message || "Failed to remove time slot. Please try again.")
+  } finally {
+    setLoading(false)
   }
+}
 
   const loadPatients = async () => {
     try {

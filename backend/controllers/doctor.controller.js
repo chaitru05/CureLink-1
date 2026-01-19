@@ -1,10 +1,15 @@
-import User from "../models/User.js"
+import User from "../models/User.js";
 
 // GET ALL DOCTORS
 export const getDoctors = async (req, res) => {
-  const doctors = await User.find({ role: "doctor" }).select("-password")
-  res.json(doctors)
-}
+  try {
+    const doctors = await User.find({ role: "doctor" }).select("-password");
+    res.json(doctors);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error while fetching doctors" });
+  }
+};
 
 // UPDATE AVAILABILITY (Doctor only)
 export const updateAvailability = async (req, res) => {
