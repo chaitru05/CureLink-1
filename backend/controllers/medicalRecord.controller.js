@@ -4,18 +4,23 @@ import MedicineReminder from "../models/MedicineReminder.js"
 /* ================= ADD MEDICAL RECORD (DOCTOR) ================= */
 export const addMedicalRecord = async (req, res) => {
   try {
+    const { patientId, appointmentId } = req.body
+
+    if (!patientId || !appointmentId) {
+      return res.status(400).json({
+        message: "patientId and appointmentId are required"
+      })
+    }
+
     const record = await MedicalRecord.create({
       ...req.body,
       doctorId: req.user.id
     })
 
-    /* ===== Generate medicine reminders safely ===== */
+    // Medicine reminders (your logic is correct)
     if (Array.isArray(record.prescriptions)) {
       for (const med of record.prescriptions) {
-
-        if (!med.startDate || !med.durationInDays || !Array.isArray(med.times)) {
-          continue // skip invalid prescription
-        }
+        if (!med.startDate || !med.durationInDays || !Array.isArray(med.times)) continue
 
         for (let day = 0; day < med.durationInDays; day++) {
           const reminderDate = new Date(med.startDate)

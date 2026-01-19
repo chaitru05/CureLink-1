@@ -3,6 +3,11 @@ import { useNavigate } from "react-router-dom"
 import axiosInstance from "../api/axiosInstance"
 import Sidebar from "./Sidebar"
 import "./PatientDashboard.css"
+import { Calendar, momentLocalizer } from "react-big-calendar"
+import moment from "moment"
+import "react-big-calendar/lib/css/react-big-calendar.css"
+
+
 
 export default function PatientDashboard() {
   const navigate = useNavigate()
@@ -10,7 +15,7 @@ export default function PatientDashboard() {
   const [patientName, setPatientName] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-
+  const localizer = momentLocalizer(moment)
   // Statistics
   const [stats, setStats] = useState({
     upcomingAppointments: 0,
@@ -334,40 +339,69 @@ export default function PatientDashboard() {
   }
 
   const loadCalendar = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-  
-      const res = await axiosInstance.get("/calendar/patient")
-      console.log("Calendar API response:", res.data)
-      // ✅ ALWAYS normalize response to array
-      let events = []
-  
-      if (Array.isArray(res.data)) {
-        events = res.data
-      } else if (Array.isArray(res.data?.events)) {
-        events = res.data.events
-      }
-  
-      setCalendarEvents(events)
-  
-    } catch (err) {
-      if (err.response?.status === 404) {
-        console.info("Calendar endpoint not available yet")
-        setCalendarEvents([])
-      } else {
-        console.error("Error loading calendar:", err)
-        setError(
-          err.response?.data?.message ||
-          "Failed to load calendar. Please try again later."
-        )
-        setCalendarEvents([])
-      }
-    } finally {
-      setLoading(false)
-    }
+  try {
+    setLoading(true)
+    setError(null)
+
+    const res = await axiosInstance.get("/calendar/patient")
+
+    const appointmentEvents = res.data.appointments.map(a => ({
+      title: "Doctor Appointment",
+      date: a.appointmentDate,
+      time: a.timeSlot,
+      type: "appointment"
+    }))
+
+    const reminderEvents = res.data.reminders.map(r => ({
+      title: `Medicine: ${r.medicineName}`,
+      date: r.reminderDate,
+      time: r.reminderTime,
+      type: "medicine"
+    }))
+
+    setCalendarEvents([...appointmentEvents, ...reminderEvents])
+
+
+  } catch (err) {
+    console.error("Error loading calendar:", err)
+    setCalendarEvents([])
+  } finally {
+    setLoading(false)
   }
+}
+
   
+  const calendarData = calendarEvents.map(ev => {
+  // Default: all-day event
+  let startDate = new Date(ev.date)
+  let endDate = new Date(ev.date)
+
+  // If time exists (appointments)
+  if (ev.time && ev.time.includes("-")) {
+    const [start, end] = ev.time.split("-").map(t => t.trim())
+
+    const [sh, sm] = start.split(":")
+    const [eh, em] = end.split(":")
+
+    startDate = new Date(ev.date)
+    startDate.setHours(Number(sh), Number(sm), 0)
+
+    endDate = new Date(ev.date)
+    endDate.setHours(Number(eh), Number(em), 0)
+  } else {
+    // All-day event (medicine reminders, etc.)
+    startDate.setHours(9, 0, 0)
+    endDate.setHours(9, 30, 0)
+  }
+
+  return {
+    title: ev.title || "Event",
+    start: startDate,
+    end: endDate,
+    allDay: !ev.time
+  }
+})
+
 
   const loadNotifications = async () => {
     try {
@@ -678,112 +712,145 @@ export default function PatientDashboard() {
 
           {/* Medicines Section */}
           {activeSection === "medicines" && (
-            <div className="medicines-section">
-              <div className="section-header">
-                <h2 className="section-title">Medicine Reminders</h2>
-              </div>
-
-              <div className="medicines-list">
-                {medicines.length === 0 ? (
-                  <p className="empty-state">No medicines scheduled for today</p>
-                ) : (
-                  medicines.map((medicine) => (
-                    <div key={medicine.id} className="medicine-card">
-                      <div className="medicine-info">
-                        <h3 className="medicine-name">{medicine.medicineName || medicine.name}</h3>
-                        <p className="medicine-dosage">Dosage: {medicine.dosage || "N/A"}</p>
-                        <p className="medicine-time">Time: {formatTime(medicine.time || medicine.scheduledTime)}</p>
-                      </div>
-                      {!medicine.taken && (
-                        <button
-                          onClick={() => handleMarkTaken(medicine.id)}
-                          className="medicine-button"
-                        >
-                          Mark as Taken
-                        </button>
-                      )}
-                      {medicine.taken && (
-                        <span className="medicine-status-taken">✓ Taken</span>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Medical Records Section */}
-          {activeSection === "records" && (
-            <div className="records-section">
-              <div className="section-header">
-                <h2 className="section-title">Medical Records</h2>
-              </div>
-
-              <div className="records-list">
-                {medicalRecords.length === 0 ? (
-                  <p className="empty-state">No medical records found</p>
-                ) : (
-                  medicalRecords.map((record) => (
-                    <div key={record.id} className="record-card">
-                      <div className="record-header">
-                        <h3 className="record-diagnosis">{record.diagnosis || "N/A"}</h3>
-                        <span className="record-date">{formatDate(record.date || record.createdAt)}</span>
-                      </div>
-                      <div className="record-body">
-                        <p className="record-doctor">
-                          Doctor: {record.doctor?.name || record.doctorName || "N/A"}
-                        </p>
-                        {record.notes && <p className="record-notes">{record.notes}</p>}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Calendar Section */}
-          {activeSection === "calendar" && (
-  <div className="calendar-section">
+  <div className="medicines-section">
     <div className="section-header">
-      <h2 className="section-title">Calendar</h2>
+      <h2 className="section-title">Medicine Reminders</h2>
     </div>
 
-    <div className="calendar-container">
-      {!Array.isArray(calendarEvents) || calendarEvents.length === 0 ? (
-        <p className="empty-state">No calendar events found</p>
+    <div className="medicines-list">
+      {medicines.length === 0 ? (
+        <p className="empty-state">No medicines scheduled for today</p>
       ) : (
-        <div className="calendar-events">
-          {calendarEvents.map((event) => (
-            <div
-              key={event._id}
-              className={`calendar-event event-${event.type || "default"}`}
-            >
-              <div className="event-marker"></div>
+        medicines.map((medicine) => (
+          <div key={medicine._id} className="medicine-card">
+            <div className="medicine-info">
+              <h3 className="medicine-name">
+                {medicine.medicineName}
+              </h3>
 
-              <div className="event-content">
-                <h4 className="event-title">
-                  {event.title ||
-                    event.medicineName ||
-                    "Scheduled Event"}
-                </h4>
+              <p className="medicine-dosage">
+                Dosage: {medicine.dosage || "N/A"}
+              </p>
 
-                <p className="event-date">
-                  {formatDate(
-                    event.date ||
-                    event.appointmentDate ||
-                    event.reminderDate
-                  )}
-                  {event.time && ` at ${event.time}`}
-                </p>
-              </div>
+              <p className="medicine-time">
+                Time: {medicine.reminderTime}
+              </p>
             </div>
-          ))}
-        </div>
+
+            {!medicine.isTaken ? (
+              <button
+                onClick={() => handleMarkTaken(medicine._id)}
+                className="medicine-button"
+              >
+                Mark as Taken
+              </button>
+            ) : (
+              <span className="medicine-status-taken">✓ Taken</span>
+            )}
+          </div>
+        ))
       )}
     </div>
   </div>
 )}
+
+
+          {/* Medical Records Section */}
+          {/* Medical Records Section */}
+{activeSection === "records" && (
+  <div className="records-section-1">
+    <div className="section-header-1">
+      <h2 className="section-title-1">Medical Records</h2>
+    </div>
+
+    <div className="records-list-1">
+      {medicalRecords.length === 0 ? (
+        <p className="empty-state-1">No medical records found</p>
+      ) : (
+        medicalRecords.map((record) => (
+          <div key={record._id} className="record-card-1">
+
+            {/* Header */}
+            <div className="record-header-1">
+              <div>
+                <h3 className="record-diagnosis-1">
+                  {record.diagnosis || "N/A"}
+                </h3>
+                <p className="record-date-1">
+                  {formatDate(record.createdAt)}
+                </p>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="record-body-1">
+              <p className="record-item-1">
+                <strong>Symptoms:</strong> {record.symptoms || "N/A"}
+              </p>
+
+              <p className="record-item-1">
+                <strong>Doctor:</strong>{" "}
+                {record.doctorId?.name || "Doctor"}
+              </p>
+
+              <p className="record-item-1">
+                <strong>Appointment ID:</strong>{" "}
+                {record.appointmentId || "N/A"}
+              </p>
+            </div>
+
+            {/* Prescriptions */}
+            <div className="prescriptions-section-1">
+              <h4 className="prescription-title-1">Prescriptions</h4>
+
+              {record.prescriptions.length === 0 ? (
+                <p className="empty-state-1">No prescriptions</p>
+              ) : (
+                record.prescriptions.map((med) => (
+                  <div key={med._id} className="prescription-card-1">
+                    <p className="prescription-item-1">
+                      <strong>Medicine:</strong> {med.medicineName}
+                    </p>
+                    <p className="prescription-item-1">
+                      <strong>Dosage:</strong> {med.dosage}
+                    </p>
+                    <p className="prescription-item-1">
+                      <strong>Duration:</strong> {med.durationInDays} days
+                    </p>
+                    <p className="prescription-item-1">
+                      <strong>Start Date:</strong>{" "}
+                      {formatDate(med.startDate)}
+                    </p>
+                    <p className="prescription-item-1">
+                      <strong>Times:</strong>{" "}
+                      {med.times.map(t => t.time).join(", ")}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+)}
+
+          {/* Calendar Section */}
+          {activeSection === "calendar" && (
+            <div className="calendar-section">
+              <h2 className="section-title">Calendar</h2>
+
+              <Calendar
+                localizer={localizer}
+                events={calendarData}
+                startAccessor="start"
+                endAccessor="end"
+                style={{ height: 500 }}
+              />
+            </div>
+          )}
 
 
           {/* Notifications Section */}

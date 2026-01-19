@@ -3,8 +3,14 @@ import { useNavigate } from "react-router-dom"
 import axiosInstance from "../api/axiosInstance"
 import DoctorSidebar from "./DoctorSidebar"
 import "./DoctorDashboard.css"
+import { Calendar, momentLocalizer } from "react-big-calendar"
+import moment from "moment"
+import "react-big-calendar/lib/css/react-big-calendar.css"
+
+
 
 export default function DoctorDashboard() {
+  const localizer = momentLocalizer(moment)
   const navigate = useNavigate()
   const [activeSection, setActiveSection] = useState("overview")
   const [doctorName, setDoctorName] = useState("")
@@ -32,14 +38,48 @@ export default function DoctorDashboard() {
   const [selectedPatient, setSelectedPatient] = useState(null)
   const [showRecordModal, setShowRecordModal] = useState(false)
   const [recordForm, setRecordForm] = useState({
-    diagnosis: "",
-    symptoms: "",
-    prescriptions: "",
-    followUpDate: "",
-  })
+  diagnosis: "",
+  symptoms: "",
+  prescriptions: [
+    {
+      medicineName: "",
+      dosage: "",
+      times: [{ time: "" }],
+      durationInDays: "",
+      startDate: ""
+    }
+  ]
+})
+
+
+const [selectedAppointment, setSelectedAppointment] = useState(null)
+
 
   // Calendar
   const [calendarEvents, setCalendarEvents] = useState([])
+  const calendarData = calendarEvents.map(ev => {
+  const [start, end] = ev.time.split("-")
+
+  const startDate = moment(ev.date)
+    .set({
+      hour: parseInt(start.split(":")[0]),
+      minute: parseInt(start.split(":")[1])
+    })
+    .toDate()
+
+  const endDate = moment(ev.date)
+    .set({
+      hour: parseInt(end.split(":")[0]),
+      minute: parseInt(end.split(":")[1])
+    })
+    .toDate()
+
+  return {
+    title: ev.title,
+    start: startDate,
+    end: endDate
+  }
+})
 
   // Notifications
   const [notifications, setNotifications] = useState([])
@@ -158,47 +198,60 @@ export default function DoctorDashboard() {
 
   const loadAvailability = async (date) => {
   try {
-    const user = JSON.parse(localStorage.getItem("user"))
-    if (!user?._id) return
+    const res = await axiosInstance.get(`/doctors/availability`)
 
-    const res = await axiosInstance.get(
-      `/doctors/${user._id}/availability?date=${date}`
+    const day = res.data.find(
+      a => new Date(a.date).toISOString().split("T")[0] === date
     )
 
-    setAvailability(res.data || [])
+    if (day) {
+      setAvailableSlots(day.slots)
+    } else {
+      setAvailableSlots([])
+    }
   } catch (err) {
-    console.error("Error loading availability:", err)
+    console.error(err)
+    setAvailableSlots([])
   }
 }
-
 
   const handleDateChange = (date) => {
     setSelectedDate(date)
     loadAvailability(date)
   }
 
-  const handleAddSlot = async () => {
-    if (!newSlot.startTime || !newSlot.endTime) {
-      setError("Please provide both start and end time")
-      return
+const handleAddSlot = async () => {
+  if (!newSlot.startTime || !newSlot.endTime) {
+    setError("Please provide both start and end time")
+    return
+  }
+
+  try {
+    setLoading(true)
+    setError(null)
+
+    const response = await axiosInstance.put("/doctors/availability", {
+      date: selectedDate,
+      slot: {
+        startTime: newSlot.startTime,
+        endTime: newSlot.endTime
+      }
+    })
+
+    if (response.status === 200 && response.data.success) {
+      // reload slots from DB (single source of truth)
+      loadAvailability(selectedDate)
+      setNewSlot({ startTime: "", endTime: "" })
+    } else {
+      setError("Slot was not added")
     }
 
-    try {
-      setLoading(true)
-      setError(null)
-      await axiosInstance.put("/doctors/availability", {
-        date: selectedDate,
-        slots: [...availableSlots, { startTime: newSlot.startTime, endTime: newSlot.endTime }],
-      })
-      setNewSlot({ startTime: "", endTime: "" })
-      loadAvailability(selectedDate)
-    } catch (err) {
-      console.error("Error adding slot:", err)
-      setError(err.response?.data?.message || "Failed to add time slot. Please try again.")
-    } finally {
-      setLoading(false)
-    }
+  } catch (err) {
+    setError(err.response?.data?.message || "Failed to add time slot")
+  } finally {
+    setLoading(false)
   }
+}
 
   const handleRemoveSlot = async (slotId) => {
     try {
@@ -222,7 +275,7 @@ export default function DoctorDashboard() {
     try {
       setLoading(true)
       setError(null)
-      const res = await axiosInstance.get("/patients")
+      const res = await axiosInstance.get("/appointments/doctor")
       setPatients(res.data || [])
     } catch (err) {
       if (err.response?.status !== 404) {
@@ -235,61 +288,99 @@ export default function DoctorDashboard() {
     }
   }
 
-  const handleOpenRecordModal = (patient) => {
-    setSelectedPatient(patient)
+  const handleOpenRecordModal = (appointment) => {
+  setSelectedPatient(appointment.patientId)
+  setSelectedAppointment(appointment)
+
+  setRecordForm({
+    diagnosis: "",
+    symptoms: "",
+    prescriptions: [
+      {
+        medicineName: "",
+        dosage: "",
+        times: [{ time: "" }],
+        durationInDays: "",
+        startDate: ""
+      }
+    ]
+  })
+
+  setShowRecordModal(true)
+}
+
+
+  const handleSubmitRecord = async () => {
+  if (!recordForm.diagnosis || !recordForm.symptoms) {
+    setError("Diagnosis and Symptoms are required")
+    return
+  }
+
+  if (!selectedAppointment?._id) {
+    setError("Appointment reference missing")
+    return
+  }
+
+  try {
+    setLoading(true)
+    setError(null)
+
+    await axiosInstance.post("/medical-records", {
+      patientId: selectedAppointment.patientId._id || selectedAppointment.patientId,
+      appointmentId: selectedAppointment._id,
+      diagnosis: recordForm.diagnosis,
+      symptoms: recordForm.symptoms,
+      prescriptions: recordForm.prescriptions.map(p => ({
+        medicineName: p.medicineName,
+        dosage: p.dosage,
+        times: p.times,
+        durationInDays: Number(p.durationInDays),
+        startDate: p.startDate
+      }))
+    })
+
+    setShowRecordModal(false)
+    setSelectedPatient(null)
+    setSelectedAppointment(null)
+
     setRecordForm({
       diagnosis: "",
       symptoms: "",
-      prescriptions: "",
-      followUpDate: "",
+      prescriptions: []
     })
-    setShowRecordModal(true)
+
+  } catch (err) {
+    console.error(err)
+    setError(err.response?.data?.message || "Failed to create medical record")
+  } finally {
+    setLoading(false)
   }
-
-  const handleSubmitRecord = async () => {
-    if (!recordForm.diagnosis || !recordForm.symptoms) {
-      setError("Please fill in required fields (Diagnosis and Symptoms)")
-      return
-    }
-
-    try {
-      setLoading(true)
-      setError(null)
-      await axiosInstance.post("/medical-records", {
-        patientId: selectedPatient.id || selectedPatient._id,
-        diagnosis: recordForm.diagnosis,
-        symptoms: recordForm.symptoms,
-        prescriptions: recordForm.prescriptions,
-        followUpDate: recordForm.followUpDate || null,
-      })
-      setShowRecordModal(false)
-      setSelectedPatient(null)
-      setRecordForm({ diagnosis: "", symptoms: "", prescriptions: "", followUpDate: "" })
-      setError(null)
-    } catch (err) {
-      console.error("Error creating medical record:", err)
-      setError(err.response?.data?.message || "Failed to create medical record. Please try again.")
-    } finally {
-      setLoading(false)
-    }
   }
 
   const loadCalendar = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const res = await axiosInstance.get("/calendar/doctor")
-      setCalendarEvents(res.data || [])
-    } catch (err) {
-      if (err.response?.status !== 404) {
-        console.error("Error loading calendar:", err)
-        setError(err.response?.data?.message || "Failed to load calendar. Please try again later.")
-      }
-      setCalendarEvents([])
-    } finally {
-      setLoading(false)
-    }
+  try {
+    setLoading(true)
+    setError(null)
+
+    const res = await axiosInstance.get("/calendar/doctor")
+
+    const events = res.data.appointments.map(app => ({
+      title: "Appointment",
+      date: app.appointmentDate,
+      time: app.timeSlot,
+      type: "appointment"
+    }))
+
+    setCalendarEvents(events)
+
+  } catch (err) {
+    console.error("Error loading calendar:", err)
+    setCalendarEvents([])
+  } finally {
+    setLoading(false)
   }
+}
+
 
   const loadNotifications = async () => {
     try {
@@ -318,13 +409,19 @@ export default function DoctorDashboard() {
     navigate("/doctor-login")
   }
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
-  }
+  const formatDate = (date) => {
+  if (!date) return "N/A"
+
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return "N/A"
+
+  return d.toLocaleDateString("en-IN", {
+    year: "numeric",
+    month: "short",
+    day: "numeric"
+  })
+}
+
 
   const formatTime = (timeString) => {
     if (!timeString) return "N/A"
@@ -454,7 +551,7 @@ export default function DoctorDashboard() {
                           </div>
                           <div>
                             <h3 className="appointment-patient-name">
-                              {appointment.patient?.name || appointment.patientName || "Patient"}
+                              {appointment.patientId?.name || "Patient"}
                             </h3>
                             <p className="appointment-type">
                               {appointment.consultationType || appointment.type || "Consultation"}
@@ -473,7 +570,7 @@ export default function DoctorDashboard() {
                           </svg>
                           <div>
                             <p className="detail-label">Date</p>
-                            <p className="detail-value">{formatDate(appointment.date)}</p>
+                            <p className="detail-value">{formatDate(appointment.appointmentDate)}</p>
                           </div>
                         </div>
 
@@ -604,8 +701,11 @@ export default function DoctorDashboard() {
                             </svg>
                           </div>
                           <div>
-                            <h3 className="patient-name">{patient.name || patient.fullName || "Patient"}</h3>
-                            <p className="patient-email">{patient.email || "N/A"}</p>
+                            <h3 className="patient-name">{patient.patientId?.name  || patient.fullName || "Patient"}</h3>
+                            <p className="patient-email">{patient.patientId?.email || "N/A"}</p>
+                            <p >
+                              {patient.reasonForVisit || "N/A"}
+                            </p>
                           </div>
                         </div>
                         <button
@@ -624,32 +724,18 @@ export default function DoctorDashboard() {
 
           {/* Calendar Section */}
           {activeSection === "calendar" && (
-            <div className="calendar-section">
-              <div className="section-header">
-                <h2 className="section-title">Calendar</h2>
-              </div>
+  <div className="calendar-section">
+    <h2 className="section-title">Calendar</h2>
 
-              <div className="calendar-container">
-                {calendarEvents.length === 0 ? (
-                  <p className="empty-state">No calendar events found</p>
-                ) : (
-                  <div className="calendar-events">
-                    {calendarEvents.map((event, idx) => (
-                      <div key={idx} className={`calendar-event event-${event.type || "default"}`}>
-                        <div className="event-marker"></div>
-                        <div className="event-content">
-                          <h4 className="event-title">{event.title || "Event"}</h4>
-                          <p className="event-date">
-                            {formatDate(event.date || event.dateTime)} {event.time && `at ${event.time}`}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+    <Calendar
+      localizer={localizer}
+      events={calendarData}
+      startAccessor="start"
+      endAccessor="end"
+      style={{ height: 500 }}
+    />
+  </div>
+)}
 
           {/* Notifications Section */}
           {activeSection === "notifications" && (
@@ -683,70 +769,141 @@ export default function DoctorDashboard() {
 
       {/* Medical Record Modal */}
       {showRecordModal && selectedPatient && (
-        <div className="modal-overlay" onClick={() => setShowRecordModal(false)}>
-          <div className="modal-content modal-slide-up" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">Add Medical Record</h2>
-              <button onClick={() => setShowRecordModal(false)} className="modal-close">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+  <div className="modal-overlay" onClick={() => setShowRecordModal(false)}>
+    <div className="modal-content modal-slide-up" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-header">
+        <h2 className="modal-title">Add Medical Record</h2>
+        <button onClick={() => setShowRecordModal(false)} className="modal-close">✕</button>
+      </div>
 
-            <div className="modal-body">
-              <div className="modal-patient-info">
-                <h3>Patient: {selectedPatient.name || selectedPatient.fullName}</h3>
-              </div>
-
-              <div className="booking-form">
-                <div className="form-group">
-                  <label>Diagnosis *</label>
-                  <input
-                    type="text"
-                    value={recordForm.diagnosis}
-                    onChange={(e) => setRecordForm({ ...recordForm, diagnosis: e.target.value })}
-                    placeholder="Enter diagnosis"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Symptoms *</label>
-                  <textarea
-                    value={recordForm.symptoms}
-                    onChange={(e) => setRecordForm({ ...recordForm, symptoms: e.target.value })}
-                    placeholder="Describe symptoms"
-                    rows="4"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Prescriptions</label>
-                  <textarea
-                    value={recordForm.prescriptions}
-                    onChange={(e) => setRecordForm({ ...recordForm, prescriptions: e.target.value })}
-                    placeholder="Enter prescriptions"
-                    rows="3"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Follow-up Date</label>
-                  <input
-                    type="date"
-                    value={recordForm.followUpDate}
-                    onChange={(e) => setRecordForm({ ...recordForm, followUpDate: e.target.value })}
-                  />
-                </div>
-
-                <button onClick={handleSubmitRecord} className="primary-button" disabled={loading}>
-                  {loading ? "Submitting..." : "Submit Record"}
-                </button>
-              </div>
-            </div>
-          </div>
+      <div className="modal-body">
+        <div className="modal-patient-info">
+          <h3>Patient: {selectedPatient.name}</h3>
         </div>
-      )}
+
+        {/* Diagnosis */}
+        <div className="form-group">
+          <label>Diagnosis *</label>
+          <input
+            type="text"
+            value={recordForm.diagnosis}
+            onChange={(e) =>
+              setRecordForm({ ...recordForm, diagnosis: e.target.value })
+            }
+          />
+        </div>
+
+        {/* Symptoms */}
+        <div className="form-group">
+          <label>Symptoms *</label>
+          <textarea
+            rows="3"
+            value={recordForm.symptoms}
+            onChange={(e) =>
+              setRecordForm({ ...recordForm, symptoms: e.target.value })
+            }
+          />
+        </div>
+
+        {/* Prescriptions */}
+        <h4>Prescriptions</h4>
+
+        {recordForm.prescriptions.map((p, index) => (
+          <div key={index} className="prescription-box">
+
+            <input
+              type="text"
+              placeholder="Medicine Name"
+              value={p.medicineName}
+              onChange={(e) => {
+                const updated = [...recordForm.prescriptions]
+                updated[index].medicineName = e.target.value
+                setRecordForm({ ...recordForm, prescriptions: updated })
+              }}
+            />
+
+            <input
+              type="text"
+              placeholder="Dosage (e.g. 500mg)"
+              value={p.dosage}
+              onChange={(e) => {
+                const updated = [...recordForm.prescriptions]
+                updated[index].dosage = e.target.value
+                setRecordForm({ ...recordForm, prescriptions: updated })
+              }}
+            />
+
+            <input
+              type="number"
+              placeholder="Duration (days)"
+              value={p.durationInDays}
+              onChange={(e) => {
+                const updated = [...recordForm.prescriptions]
+                updated[index].durationInDays = e.target.value
+                setRecordForm({ ...recordForm, prescriptions: updated })
+              }}
+            />
+
+            <input
+              type="date"
+              value={p.startDate}
+              onChange={(e) => {
+                const updated = [...recordForm.prescriptions]
+                updated[index].startDate = e.target.value
+                setRecordForm({ ...recordForm, prescriptions: updated })
+              }}
+            />
+
+            {/* Times */}
+            <input
+              type="text"
+              placeholder="Times (comma separated e.g. 08:00, 20:00)"
+              value={p.times.map(t => t.time).join(",")}
+              onChange={(e) => {
+                const updated = [...recordForm.prescriptions]
+                updated[index].times = e.target.value
+                  .split(",")
+                  .map(t => ({ time: t.trim() }))
+                setRecordForm({ ...recordForm, prescriptions: updated })
+              }}
+            />
+          </div>
+        ))}
+
+        {/* Add another medicine */}
+        <button
+          className="secondary-button"
+          onClick={() =>
+            setRecordForm({
+              ...recordForm,
+              prescriptions: [
+                ...recordForm.prescriptions,
+                {
+                  medicineName: "",
+                  dosage: "",
+                  times: [{ time: "" }],
+                  durationInDays: "",
+                  startDate: ""
+                }
+              ]
+            })
+          }
+        >
+          + Add Medicine
+        </button>
+
+        <button
+          onClick={handleSubmitRecord}
+          className="primary-button"
+          disabled={loading}
+        >
+          {loading ? "Submitting..." : "Submit Record"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   )
 }

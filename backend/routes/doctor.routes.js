@@ -24,4 +24,13 @@ router.put(
   updateAvailability
 )
 
+// Doctor only – get own availability
+router.get(
+  "/availability",
+  protect,
+  authorizeRoles("doctor"),
+  getAvailability
+)
+
+
 export default router

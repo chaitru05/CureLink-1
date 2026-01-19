@@ -98,12 +98,19 @@ export const getPatientAppointments = async (req, res) => {
 
 // GET DOCTOR APPOINTMENTS
 export const getDoctorAppointments = async (req, res) => {
-  const appointments = await Appointment.find({
-    doctorId: req.user.id
-  }).populate("patientId", "name age")
+  try {
+    const appointments = await Appointment.find({
+      doctorId: req.user.id
+    })
+      .populate("patientId", "name email")   // 🔥 IMPORTANT
+      .sort({ appointmentDate: -1 })
 
-  res.json(appointments)
+    res.status(200).json(appointments)
+  } catch (err) {
+    res.status(500).json({ message: "Server error" })
+  }
 }
+
 
 // UPDATE APPOINTMENT STATUS
 export const updateAppointmentStatus = async (req, res) => {
