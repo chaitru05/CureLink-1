@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
+import PlatformActivity from "../models/PlatformActivity.js";
 
 // ---------------------------
 // REGISTER
@@ -24,6 +25,15 @@ export const register = async (req, res) => {
       email,
       password: hashedPassword,
       role
+    });
+
+    // Log platform activity
+    await PlatformActivity.create({
+      action: role === "patient" ? "Patient Registered" : role === "doctor" ? "Doctor Registered" : "User Registered",
+      userId: user._id,
+      targetId: user._id,
+      targetType: "User",
+      description: `${role === "patient" ? "Patient" : role === "doctor" ? "Doctor" : "User"} ${name} registered with email ${email}`
     });
 
     // Generate JWT token

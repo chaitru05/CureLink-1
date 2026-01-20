@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Appointment from "../models/Appointment.js";
 import User from "../models/User.js";
+import PlatformActivity from "../models/PlatformActivity.js";
 
 // ---------------------------
 // BOOK APPOINTMENT (Atomic)
@@ -64,6 +65,18 @@ export const bookAppointment = async (req, res) => {
     );
 
     await session.commitTransaction();
+    
+    // Log platform activity
+    const patient = await User.findById(req.user.id);
+    const doctor = await User.findById(doctorId);
+    await PlatformActivity.create({
+      action: "Appointment Created",
+      userId: req.user.id,
+      targetId: appointment[0]._id,
+      targetType: "Appointment",
+      description: `Patient ${patient?.name} booked an appointment with Dr. ${doctor?.name} on ${new Date(appointmentDate).toLocaleDateString()}`
+    });
+    
     res.status(201).json({ message: "Appointment booked successfully", appointment: appointment[0] });
 
   } catch (error) {
@@ -103,13 +116,34 @@ export const getDoctorAppointments = async (req, res) => {
 
 // UPDATE APPOINTMENT STATUS
 export const updateAppointmentStatus = async (req, res) => {
-  const appointment = await Appointment.findByIdAndUpdate(
-    req.params.id,
-    { status: req.body.status },
-    { new: true }
-  )
+  try {
+    const appointment = await Appointment.findByIdAndUpdate(
+      req.params.id,
+      { status: req.body.status },
+      { new: true }
+    );
 
-  res.json(appointment)
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    // Populate for logging
+    await appointment.populate("patientId", "name");
+    await appointment.populate("doctorId", "name");
+
+    // Log platform activity
+    await PlatformActivity.create({
+      action: "Appointment Status Updated",
+      userId: req.user.id,
+      targetId: appointment._id,
+      targetType: "Appointment",
+      description: `Appointment status changed to ${req.body.status} for ${appointment.patientId?.name || "patient"} with Dr. ${appointment.doctorId?.name || "doctor"}`
+    });
+
+    res.json(appointment);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 // ---------------------------
@@ -148,6 +182,18 @@ export const cancelAppointment = async (req, res) => {
     await appointment.save({ session });
 
     await session.commitTransaction();
+    
+    // Log platform activity
+    const patient = await User.findById(appointment.patientId);
+    const doctor = await User.findById(appointment.doctorId);
+    await PlatformActivity.create({
+      action: "Appointment Cancelled",
+      userId: req.user.id,
+      targetId: appointment._id,
+      targetType: "Appointment",
+      description: `Appointment cancelled for ${patient?.name} with Dr. ${doctor?.name}`
+    });
+    
     res.json({ message: "Appointment cancelled and slot released", appointment });
 
   } catch (error) {

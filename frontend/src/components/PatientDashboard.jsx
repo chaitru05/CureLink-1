@@ -168,10 +168,33 @@ export default function PatientDashboard() {
       )
   
       console.log("Availability API response:", res.data)
+      console.log("Selected date:", date)
   
-      // ✅ FIX: extract slots correctly
+      // ✅ FIX: Find slots for the specific selected date, not just the first one
       if (Array.isArray(res.data) && res.data.length > 0) {
-        setAvailableSlots(res.data[0].slots)
+        // Convert selected date to match the format in the response (YYYY-MM-DD)
+        const selectedDateStr = new Date(date).toISOString().split("T")[0]
+        
+        // Find the availability object that matches the selected date
+        const matchingAvailability = res.data.find((availability) => {
+          if (!availability.date) return false
+          
+          // Handle both Date objects and date strings
+          const availabilityDate = new Date(availability.date)
+          const availabilityDateStr = availabilityDate.toISOString().split("T")[0]
+          
+          return availabilityDateStr === selectedDateStr
+        })
+        
+        if (matchingAvailability && matchingAvailability.slots) {
+          // Filter out booked slots
+          const availableSlots = matchingAvailability.slots.filter(slot => !slot.isBooked)
+          setAvailableSlots(availableSlots)
+          console.log("Found slots for selected date:", availableSlots)
+        } else {
+          console.log("No availability found for selected date:", selectedDateStr)
+          setAvailableSlots([])
+        }
       } else {
         setAvailableSlots([])
       }
