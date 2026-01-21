@@ -588,22 +588,41 @@ export default function PatientDashboard() {
           key={doctor._id}   // ✅ correct
           className="doctor-card doctor-card-hover"
         >
+          <div className="doctor-image-wrapper">
+            <div className="doctor-rating" title="Profile">
+              <svg className="star-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+              <span>Top</span>
+            </div>
+            <div className="doctor-avatar-initials">
+              {(doctor.name || "D")
+                .split(" ")
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((w) => w[0]?.toUpperCase())
+                .join("")}
+            </div>
+          </div>
           <div className="doctor-info">
             <h3 className="doctor-name">{doctor.name}</h3>
             <p className="doctor-specialty">
               {doctor.specialization || doctor.specialty}
             </p>
 
-            {doctor.experience && (
-              <div className="doctor-meta">
-                <span className="doctor-experience">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2" />
-                  </svg>
-                  {doctor.experience} yrs
+            <div className="doctor-meta">
+              <span className="doctor-experience">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2" />
+                </svg>
+                {(doctor.experience ?? 0)} yrs
+              </span>
+              {doctor.email && (
+                <span className="doctor-pill" title={doctor.email}>
+                  Email
                 </span>
-              </div>
-            )}
+              )}
+            </div>
 
             <button
               onClick={() => handleViewAvailability(doctor)}
@@ -656,12 +675,14 @@ export default function PatientDashboard() {
 
                 <div>
                   <h3 className="appointment-doctor-name">
-                    {appointment.doctor?.name ||
+                    {appointment.doctorId?.name ||
+                      appointment.doctor?.name ||
                       appointment.doctorName ||
                       "Doctor"}
                   </h3>
                   <p className="appointment-doctor-specialty">
-                    {appointment.doctor?.specialization ||
+                    {appointment.doctorId?.specialization ||
+                      appointment.doctor?.specialization ||
                       appointment.specialization ||
                       ""}
                   </p>
@@ -875,34 +896,7 @@ export default function PatientDashboard() {
             </div>
           )}
 
-
-          {/* Notifications Section */}
-          {activeSection === "notifications" && (
-            <div className="notifications-section">
-              <div className="section-header">
-                <h2 className="section-title">Notifications</h2>
-              </div>
-
-              <div className="notifications-list">
-                {notifications.length === 0 ? (
-                  <p className="empty-state">No notifications</p>
-                ) : (
-                  notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`notification-card ${!notification.read ? "unread" : ""}`}
-                    >
-                      <h4 className="notification-title">{notification.title || "Notification"}</h4>
-                      <p className="notification-message">{notification.message || notification.content}</p>
-                      <span className="notification-time">
-                        {formatDate(notification.createdAt || notification.date)}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+          
         </div>
       </main>
 

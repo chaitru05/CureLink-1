@@ -531,6 +531,51 @@
   justify-content: center;
 }
 
+.doctor-avatar-initials {
+  width: 92px;
+  height: 92px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+.doctor-pill {
+  margin-left: auto;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0f766e;
+  background: rgba(20, 184, 166, 0.12);
+  border: 1px solid rgba(20, 184, 166, 0.25);
+}
+
+.booking-section .section-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.booking-section .section-description {
+  max-width: 720px;
+}
+
+.doctor-card {
+  border: 1px solid rgba(229, 231, 235, 0.9);
+}
+
+.doctor-card-hover:hover {
+  border-color: rgba(20, 184, 166, 0.45);
+}
 .doctor-image {
   width: 100%;
   height: 100%;
