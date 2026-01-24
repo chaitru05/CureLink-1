@@ -5,6 +5,8 @@ import "./AuthPage.css"
 import { signInWithPopup } from "firebase/auth";
 import { auth, provider } from "../firebase";
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 
 
 export default function AuthPage() {
@@ -38,7 +40,7 @@ export default function AuthPage() {
     console.log("Google User:", user);
 
     // OPTIONAL: send user to backend
-    await fetch("http://localhost:5000/api/users/google-login", {
+    await fetch(`${API_URL}/api/users/google-login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
