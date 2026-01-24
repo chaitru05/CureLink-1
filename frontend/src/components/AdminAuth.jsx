@@ -4,6 +4,7 @@ import { useState } from "react"
 import "./AuthPage.css"
 import { useNavigate } from "react-router-dom"
 import axios from "../api/axiosInstance"
+import axiosInstance from "../api/axiosInstance";
 
 export default function AdminAuth({ onRoleChange }) {
   const navigate = useNavigate()
@@ -41,9 +42,8 @@ export default function AdminAuth({ onRoleChange }) {
             role: "admin"
           }
 
-      const url = isLogin ? "/auth/login" : "/auth/register"
-
-      const { data } = await axios.post(url, payload)
+      const url = isLogin ? "/auth/login" : "/auth/register";
+      const { data } = await axiosInstance.post(url, payload);
 
       // ✅ STORE JWT + ROLE
       localStorage.setItem("token", data.token)
