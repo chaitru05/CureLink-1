@@ -3,9 +3,6 @@
 import { useState } from "react"
 import "./AuthPage.css"
 import { useNavigate } from "react-router-dom"
-import axios from "../api/axiosInstance"
-import axiosInstance from "../api/axiosInstance";
-
 import axiosInstance from "../api/axiosInstance"; // adjust path
 
 export default function AdminAuth({ onRoleChange }) {
