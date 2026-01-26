@@ -1,14 +1,34 @@
 import { Navigate } from "react-router-dom"
+import { useEffect, useState } from "react"
+import axiosInstance from "../api/axiosInstance"
 
 export default function ProtectedRoute({ role, children }) {
-  const token = localStorage.getItem("token")
-  const userRole = localStorage.getItem("role")
+  const [loading, setLoading] = useState(true)
+  const [authorized, setAuthorized] = useState(false)
 
-  if (!token) {
-    return <Navigate to="/" replace />
-  }
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data } = await axiosInstance.get("/auth/profile")
 
-  if (role && userRole !== role) {
+        if (role && data.role !== role) {
+          setAuthorized(false)
+        } else {
+          setAuthorized(true)
+        }
+      } catch (err) {
+        setAuthorized(false)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [role])
+
+  if (loading) return null // or loader
+
+  if (!authorized) {
     return <Navigate to="/" replace />
   }
 
