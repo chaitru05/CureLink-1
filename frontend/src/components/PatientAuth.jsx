@@ -46,7 +46,7 @@ export default function PatientAuth({ onRoleChange }) {
       localStorage.setItem("role", "patient");
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      navigate("/patient-dashboard");
+      navigate("/");
 
     } catch (err) {
       console.error(err);
