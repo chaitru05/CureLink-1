@@ -22,17 +22,14 @@ const allowedOrigins = [
   "https://cure-link-1.vercel.app"
 ];
 
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
-    // allow server-to-server, Postman, curl
     if (!origin) return callback(null, true);
 
-    // allow exact origins
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
-    // allow ALL Vercel preview deployments
     if (origin.endsWith(".vercel.app")) {
       return callback(null, true);
     }
@@ -42,10 +39,12 @@ app.use(cors({
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
-}));
+};
 
-// ✅ Explicit preflight handling
-app.options("*", cors());
+// ✅ USE SAME OPTIONS EVERYWHERE
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
 
 /* =======================
    MIDDLEWARES
