@@ -16,19 +16,29 @@ const app = express()
 
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://https://cure-link-1.vercel.app/"
+  "https://cure-link-1.vercel.app"
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
+    // allow non-browser requests (Postman, server-to-server)
+    if (!origin) return callback(null, true);
+
+    // allow exact matches
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+
+    // ✅ allow ALL Vercel preview deployments
+    if (origin.endsWith(".vercel.app")) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("Not allowed by CORS"));
   },
   credentials: true
 }));
+
 
 app.use(express.json())
 app.use(cookieParser());
