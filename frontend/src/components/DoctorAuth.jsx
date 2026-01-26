@@ -3,7 +3,7 @@
 import { useState } from "react"
 import "./AuthPage.css"
 import { useNavigate } from "react-router-dom"
-import axios from "../api/axiosInstance"
+import axiosInstance from "../api/axiosInstance"
 
 export default function DoctorAuth({ onRoleChange }) {
   const navigate = useNavigate()
@@ -25,39 +25,40 @@ export default function DoctorAuth({ onRoleChange }) {
   }
 
   /* ================= SUBMIT ================= */
-  const handleSubmit = async (e) => {
-    e.preventDefault()
 
-    try {
-      const payload = isLogin
-        ? {
-            email: formData.email,
-            password: formData.password
-          }
-        : {
-            name: formData.name,
-            email: formData.email,
-            password: formData.password,
-            role: "doctor",
-            specialization: formData.specialization,
-            experience: Number(formData.experience)
-          }
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-      const url = isLogin ? "/auth/login" : "/auth/register"
+  try {
+    const payload = isLogin
+      ? {
+          email: formData.email,
+          password: formData.password
+        }
+      : {
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          role: "doctor",
+          specialization: formData.specialization,
+          experience: Number(formData.experience)
+        };
 
-      const { data } = await axios.post(url, payload)
+    const url = isLogin ? "/auth/login" : "/auth/register";
 
-      // ✅ STORE AUTH DATA
-      localStorage.setItem("token", data.token)
-      localStorage.setItem("role", "doctor")
-      localStorage.setItem("user", JSON.stringify(data.user))
+    const { data } = await axiosInstance.post(url, payload);
 
-      navigate("/doctor-dashboard")
+    // ✅ OPTIONAL: store ONLY safe UI data
+    localStorage.setItem("role", "doctor");
+    localStorage.setItem("user", JSON.stringify(data.user));
 
-    } catch (err) {
-      alert(err.response?.data?.message || "Doctor authentication failed")
-    }
+    navigate("/doctor-dashboard");
+
+  } catch (err) {
+    alert(err.response?.data?.message || "Doctor authentication failed");
   }
+};
+
 
   return (
     <div className="auth-container">

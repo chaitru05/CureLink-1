@@ -2,30 +2,30 @@
 
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import axios from "../api/axiosInstance"
+import axiosInstance from "../api/axiosInstance"
 import "./AuthPage.css"
 
-export default function PatientAuth({ onRoleChange }) {
-  const navigate = useNavigate()
+import axiosInstance from "../api/axiosInstance"; // adjust path
 
-  const [isLogin, setIsLogin] = useState(true)
-  const [loading, setLoading] = useState(false)
+export default function PatientAuth({ onRoleChange }) {
+  const navigate = useNavigate();
+
+  const [isLogin, setIsLogin] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: ""
-  })
+  });
 
-  /* ================= INPUT ================= */
   const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
-  }
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
-  /* ================= AUTH ================= */
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
 
     try {
       const payload = isLogin
@@ -38,30 +38,26 @@ export default function PatientAuth({ onRoleChange }) {
             email: formData.email,
             password: formData.password,
             role: "patient"
-          }
+          };
 
-      const url = isLogin ? "/auth/login" : "/auth/register"
+      const url = isLogin ? "/auth/login" : "/auth/register";
 
-      const { data } = await axios.post(url, payload)
+      const { data } = await axiosInstance.post(url, payload);
 
-      // 🔐 SAFETY CHECK (VERY IMPORTANT)
-      if (!data.token) {
-        throw new Error("JWT token missing from backend response")
-      }
+      // ✅ OPTIONAL: store ONLY UI-safe data
+      localStorage.setItem("role", "patient");
+      localStorage.setItem("user", JSON.stringify(data.user));
 
-      localStorage.setItem("token", data.token)
-      localStorage.setItem("role", "patient")
-      localStorage.setItem("user", JSON.stringify(data.user))
-
-      navigate("/patient-dashboard")
+      navigate("/patient-dashboard");
 
     } catch (err) {
-      console.error(err)
-      alert(err.response?.data?.message || err.message || "Authentication failed")
+      console.error(err);
+      alert(err.response?.data?.message || "Authentication failed");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
 
   /* ================= UI ================= */
 //   return (

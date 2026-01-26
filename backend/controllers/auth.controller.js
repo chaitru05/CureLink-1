@@ -52,6 +52,24 @@ export const register = async (req, res) => {
         role: user.role
       }
     });
+    // after generating token
+
+res.cookie("token", token, {
+  httpOnly: true,
+  secure: true,
+  sameSite: "none",
+  maxAge: 7 * 24 * 60 * 60 * 1000
+});
+
+res.status(201).json({
+  user: {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role
+  }
+});
+
 
   } catch (error) {
     console.error(error);
@@ -66,27 +84,31 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Generate JWT token
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
+    // ✅ SET COOKIE
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,       // REQUIRED on Vercel + Railway
+      sameSite: "none",   // REQUIRED for cross-origin
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
     res.json({
-      token,
       user: {
         id: user._id,
         name: user.name,
@@ -100,6 +122,7 @@ export const login = async (req, res) => {
     res.status(500).json({ message: "Server error during login" });
   }
 };
+
 
 // ---------------------------
 // GET PROFILE

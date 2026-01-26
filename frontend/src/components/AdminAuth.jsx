@@ -6,9 +6,11 @@ import { useNavigate } from "react-router-dom"
 import axios from "../api/axiosInstance"
 import axiosInstance from "../api/axiosInstance";
 
+import axiosInstance from "../api/axiosInstance"; // adjust path
+
 export default function AdminAuth({ onRoleChange }) {
-  const navigate = useNavigate()
-  const [isLogin, setIsLogin] = useState(true)
+  const navigate = useNavigate();
+  const [isLogin, setIsLogin] = useState(true);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -16,18 +18,17 @@ export default function AdminAuth({ onRoleChange }) {
     password: "",
     confirmPassword: "",
     adminCode: ""
-  })
+  });
 
   const handleInputChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
-    })
-  }
+    });
+  };
 
-  /* ================= SUBMIT ================= */
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
     try {
       const payload = isLogin
@@ -40,22 +41,22 @@ export default function AdminAuth({ onRoleChange }) {
             email: formData.email,
             password: formData.password,
             role: "admin"
-          }
+          };
 
       const url = isLogin ? "/auth/login" : "/auth/register";
       const { data } = await axiosInstance.post(url, payload);
 
-      // ✅ STORE JWT + ROLE
-      localStorage.setItem("token", data.token)
-      localStorage.setItem("role", "admin")
-      localStorage.setItem("user", JSON.stringify(data.user))
+      // ✅ OPTIONAL: UI-only storage (safe)
+      localStorage.setItem("role", "admin");
+      localStorage.setItem("user", JSON.stringify(data.user));
 
-      navigate("/admin-dashboard")
+      navigate("/admin-dashboard");
 
     } catch (err) {
-      alert(err.response?.data?.message || "Admin authentication failed")
+      alert(err.response?.data?.message || "Admin authentication failed");
     }
-  }
+  };
+
 
   /* ================= UI (UNCHANGED) ================= */
   return (
