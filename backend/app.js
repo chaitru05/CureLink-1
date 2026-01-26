@@ -14,7 +14,7 @@ import adminRoutes from "./routes/admin.routes.js";
 const app = express();
 
 /* =======================
-   CORS CONFIG (MUST BE FIRST)
+   CORS CONFIG (FIRST)
 ======================= */
 
 const allowedOrigins = [
@@ -24,6 +24,8 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: function (origin, callback) {
+    console.log("🌍 CORS ORIGIN:", origin);
+
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
@@ -41,10 +43,7 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"]
 };
 
-// ✅ USE SAME OPTIONS EVERYWHERE
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
-
+app.use(cors(corsOptions)); // ✅ THIS IS ENOUGH
 
 /* =======================
    MIDDLEWARES
