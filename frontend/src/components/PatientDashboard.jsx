@@ -54,17 +54,36 @@ export default function PatientDashboard() {
   const [unreadCount, setUnreadCount] = useState(0)
 
   // Get patient info from localStorage
-  useEffect(() => {
-    const userStr = localStorage.getItem("user")
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr)
-        setPatientName(user.name || user.fullName || "Patient")
-      } catch (e) {
-        setPatientName("Patient")
-      }
+ useEffect(() => {
+  const fetchPatientName = async () => {
+    try {
+      const { data } = await axiosInstance.get("/auth/profile");
+      setPatientName(data.name || "Patient");
+    } catch (err) {
+      setPatientName("Patient");
     }
-  }, [])
+  };
+
+  fetchPatientName();
+}, []);
+  // Check authentication and role
+  useEffect(() => {
+  const checkPatientAuth = async () => {
+    try {
+      const { data } = await axiosInstance.get("/auth/profile");
+
+      // role protection
+      if (data.role !== "patient") {
+        navigate("/");
+      }
+    } catch (err) {
+      // not logged in
+      navigate("/");
+    }
+  };
+
+  checkPatientAuth();
+}, []);
 
   // Load dashboard data
   useEffect(() => {
@@ -451,12 +470,17 @@ export default function PatientDashboard() {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem("token")
-    localStorage.removeItem("role")
-    localStorage.removeItem("user")
-    navigate("/")
+  const handleLogout = async () => {
+  try {
+    await axiosInstance.post("/auth/logout");
+  } catch (err) {
+    console.error("Logout failed", err);
+  } finally {
+    localStorage.removeItem("role");
+    localStorage.removeItem("user");
+    navigate("/");
   }
+};
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("en-US", {
