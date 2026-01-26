@@ -29,22 +29,35 @@ export const register = async (req, res) => {
 
     // Log platform activity
     await PlatformActivity.create({
-      action: role === "patient" ? "Patient Registered" : role === "doctor" ? "Doctor Registered" : "User Registered",
+      action:
+        role === "patient"
+          ? "Patient Registered"
+          : role === "doctor"
+          ? "Doctor Registered"
+          : "User Registered",
       userId: user._id,
       targetId: user._id,
       targetType: "User",
-      description: `${role === "patient" ? "Patient" : role === "doctor" ? "Doctor" : "User"} ${name} registered with email ${email}`
+      description: `${role} ${name} registered with email ${email}`
     });
 
-    // Generate JWT token
+    // Generate JWT
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
+    // ✅ SET COOKIE BEFORE RESPONSE
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,      // HTTPS (Vercel + Railway)
+      sameSite: "none",  // cross-origin cookies
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    // ✅ SEND RESPONSE ONCE
     res.status(201).json({
-      token,
       user: {
         id: user._id,
         name: user.name,
@@ -52,27 +65,9 @@ export const register = async (req, res) => {
         role: user.role
       }
     });
-    // after generating token
-
-res.cookie("token", token, {
-  httpOnly: true,
-  secure: true,
-  sameSite: "none",
-  maxAge: 7 * 24 * 60 * 60 * 1000
-});
-
-res.status(201).json({
-  user: {
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    role: user.role
-  }
-});
-
 
   } catch (error) {
-    console.error(error);
+    console.error("REGISTER ERROR:", error);
     res.status(500).json({ message: "Server error during registration" });
   }
 };
