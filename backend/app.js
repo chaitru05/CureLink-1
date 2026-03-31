@@ -43,7 +43,10 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"]
 };
 
-app.use(cors(corsOptions)); // ✅ THIS IS ENOUGH
+app.use(cors(corsOptions));
+
+// ✅ Explicit preflight handler — ensures OPTIONS requests always succeed
+app.options("*", cors(corsOptions));
 
 /* =======================
    MIDDLEWARES
