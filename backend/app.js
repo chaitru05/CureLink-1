@@ -19,8 +19,10 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://cure-link-1.vercel.app"
-];
+  // "https://cure-link-1.vercel.app",          // Vercel (commented — keeping for reference)
+  process.env.CLOUDFRONT_URL,                    // e.g. https://d1234abcdef.cloudfront.net
+  process.env.S3_WEBSITE_URL                     // e.g. http://curelink-frontend.s3-website.ap-south-1.amazonaws.com
+].filter(Boolean);
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -32,7 +34,11 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    if (origin.endsWith(".vercel.app")) {
+    // if (origin.endsWith(".vercel.app")) {      // Vercel (commented — keeping for reference)
+    //   return callback(null, true);
+    // }
+
+    if (origin.endsWith(".cloudfront.net") || origin.endsWith(".amazonaws.com")) {
       return callback(null, true);
     }
 
@@ -54,6 +60,14 @@ app.options("*", cors(corsOptions));
 
 app.use(express.json());
 app.use(cookieParser());
+
+/* =======================
+   HEALTH CHECK (for EC2 / API Gateway / CloudWatch)
+======================= */
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
 
 /* =======================
    ROUTES

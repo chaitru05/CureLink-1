@@ -1,0 +1,140 @@
+# CureLink — Project Overview
+
+**CureLink** is a full-stack **healthcare appointment management platform** that connects **Patients**, **Doctors**, and **Admins** through a unified web application.
+
+---
+
+## 🏗️ Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React (Vite) + Axios |
+| **Backend** | Express.js (Node.js) |
+| **Database** | MongoDB (Mongoose ODM) |
+| **Auth** | JWT (HTTP-only cookies) + bcrypt |
+| **Notifications** | Firebase |
+| **Deployment** | Frontend → Vercel, Backend → Railway |
+
+---
+
+## 👥 Three User Roles
+
+### 1. 🩺 Patient
+- Register/login with email & password
+- Browse available doctors (by specialization)
+- Book appointments by selecting a doctor, date, and available time slot
+- View upcoming & past appointments
+- View medical records and prescriptions written by doctors
+- Receive medicine reminders
+- Get notifications (appointment confirmations, reminders, system alerts)
+
+### 2. 👨‍⚕️ Doctor
+- Login with credentials (account created by Admin)
+- Set **availability** — specific dates with time slots (e.g., 10:00 AM – 10:30 AM)
+- View patient appointments (incoming bookings)
+- Update appointment status (confirm, complete, cancel)
+- Write **medical records** after consultations:
+  - Diagnosis & symptoms
+  - Prescriptions (medicine name, dosage, timing, duration)
+- View calendar of scheduled appointments
+
+### 3. 🛡️ Admin
+- Dedicated admin login
+- **Doctor management**: Create, update, and delete doctor profiles (including specialization & experience)
+- **User management**: View all users, delete user accounts
+- **Appointment oversight**: View all appointments across the platform, filter by status/doctor/patient, update or cancel any appointment
+- **Platform statistics dashboard**: Total doctors, patients, appointments, today's appointments, pending/completed/cancelled counts
+- **Activity logs**: Track all admin actions (created doctor, deleted user, cancelled appointment, etc.) and platform-wide activity (patient registrations, appointment bookings)
+
+---
+
+## 🔑 Key Features
+
+### Atomic Appointment Booking
+Appointments are booked using **MongoDB transactions**. When a patient books a slot:
+1. The doctor's time slot is atomically marked as `isBooked: true`
+2. An [Appointment](file:///d:/Chaitrali/CureLink3/backend/controllers/admin.controller.js#219-235) document is created
+3. If anything fails, the entire transaction rolls back — **no double bookings possible**
+
+### Cancellation with Slot Release
+When an appointment is cancelled, the doctor's time slot is atomically released back to `isBooked: false`, making it available for other patients again.
+
+### Medicine Reminders
+After a doctor writes a prescription, the system tracks medicine reminders per patient with:
+- Medicine name, dosage, reminder date/time
+- `isTaken` status for tracking adherence
+
+### Patient Medical History
+Stores long-term patient data: allergies, past illnesses, ongoing medications, and surgeries.
+
+### Activity Logging
+Every significant action is logged:
+- **AdminLog**: Tracks admin-specific actions (CRUD on doctors, appointment management)
+- **PlatformActivity**: Tracks all platform events (user registrations, appointment lifecycle)
+
+### Notifications
+In-app notifications for each user with types: `appointment`, `reminder`, `system` — with read/unread tracking.
+
+---
+
+## 📁 Project Structure
+
+```
+CureLink3/
+├── backend/
+│   ├── app.js                    # Express app setup, CORS, middleware, routes
+│   ├── server.js                 # Server entry point (connects to MongoDB)
+│   ├── config/                   # Database config
+│   ├── models/                   # 8 Mongoose models
+│   │   ├── User.js               # Patient/Doctor/Admin (unified with role field)
+│   │   ├── Appointment.js        # Appointment booking with status tracking
+│   │   ├── MedicalRecord.js      # Diagnosis, symptoms, prescriptions
+│   │   ├── MedicineReminder.js   # Per-patient medicine reminders
+│   │   ├── Notification.js       # In-app notifications
+│   │   ├── PatientHistory.js     # Allergies, past illnesses, surgeries
+│   │   ├── AdminLog.js           # Admin action audit trail
+│   │   └── PlatformActivity.js   # Platform-wide activity feed
+│   ├── controllers/              # Business logic for each feature
+│   ├── routes/                   # REST API route definitions
+│   └── middlewares/              # Auth middleware (JWT verification)
+│
+├── frontend/
+│   └── src/
+│       ├── App.jsx               # Route definitions for all 3 roles
+│       ├── firebase.js           # Firebase configuration
+│       ├── api/                   # Axios API layer
+│       └── components/
+│           ├── PatientAuth.jsx    # Patient login/register
+│           ├── DoctorAuth.jsx     # Doctor login
+│           ├── AdminAuth.jsx      # Admin login
+│           ├── PatientDashboard.jsx  # Full patient portal
+│           ├── DoctorDashboard.jsx   # Doctor's workspace
+│           ├── AdminDashboard.jsx    # Admin control panel
+│           ├── ProtectedRoute.jsx    # Role-based route guard
+│           ├── RoleSwitcher.jsx      # Switch between login pages
+│           └── Sidebar.jsx / DoctorSidebar.jsx
+```
+
+---
+
+## 🌐 API Endpoints Summary
+
+| Route Prefix | Purpose |
+|---|---|
+| `/api/auth` | Register, login, logout, get profile |
+| `/api/doctors` | Browse doctors, view availability |
+| `/api/appointments` | Book, view, cancel, update appointments |
+| `/api/medical-records` | Create/view patient medical records |
+| `/api/reminders` | Medicine reminder CRUD |
+| `/api/calendar` | Calendar view of appointments |
+| `/api/notifications` | User notifications |
+| `/api/admin` | Admin-only: manage doctors, users, view stats & logs |
+
+---
+
+## 🔒 Security
+
+- **JWT** stored in HTTP-only, secure, SameSite=None cookies (for cross-origin Vercel↔Railway)
+- **bcrypt** password hashing (10 salt rounds)
+- **Role-based access**: Protected routes on frontend, middleware-guarded APIs on backend
+- **CORS**: Whitelist of allowed origins (localhost + Vercel domains)
