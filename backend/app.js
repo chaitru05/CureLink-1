@@ -51,9 +51,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// ✅ Explicit preflight handler — ensures OPTIONS requests always succeed
-app.options("*", cors(corsOptions));
-
 /* =======================
    MIDDLEWARES
 ======================= */
