@@ -145,7 +145,7 @@ export default function PatientDashboard() {
       }
 
       const upcoming = appointmentsData.filter(
-        (apt) => new Date(apt.date) >= new Date() && apt.status !== "cancelled" && apt.status !== "completed"
+        (apt) => new Date(apt.appointmentDate || apt.date) >= new Date() && apt.status !== "cancelled" && apt.status !== "completed"
       )
       const completed = appointmentsData.filter((apt) => apt.status === "completed")
 
@@ -413,6 +413,19 @@ export default function PatientDashboard() {
 }
 
   
+  // Helper to parse AM/PM time strings like "09:00 AM" → { hours: 9, minutes: 0 }
+  const parseAMPM = (timeStr) => {
+    if (!timeStr) return { hours: 0, minutes: 0 }
+    const parts = timeStr.trim().match(/(\d+):(\d+)\s*(AM|PM)/i)
+    if (!parts) return { hours: 0, minutes: 0 }
+    let hours = parseInt(parts[1])
+    const minutes = parseInt(parts[2])
+    const period = parts[3].toUpperCase()
+    if (period === "PM" && hours !== 12) hours += 12
+    if (period === "AM" && hours === 12) hours = 0
+    return { hours, minutes }
+  }
+
   const calendarData = calendarEvents.map(ev => {
   // Default: all-day event
   let startDate = new Date(ev.date)
@@ -422,16 +435,23 @@ export default function PatientDashboard() {
   if (ev.time && ev.time.includes("-")) {
     const [start, end] = ev.time.split("-").map(t => t.trim())
 
-    const [sh, sm] = start.split(":")
-    const [eh, em] = end.split(":")
+    const startParsed = parseAMPM(start)
+    const endParsed = parseAMPM(end)
 
     startDate = new Date(ev.date)
-    startDate.setHours(Number(sh), Number(sm), 0)
+    startDate.setHours(startParsed.hours, startParsed.minutes, 0)
 
     endDate = new Date(ev.date)
-    endDate.setHours(Number(eh), Number(em), 0)
+    endDate.setHours(endParsed.hours, endParsed.minutes, 0)
+  } else if (ev.time) {
+    // Single time (medicine reminders)
+    const parsed = parseAMPM(ev.time)
+    startDate = new Date(ev.date)
+    startDate.setHours(parsed.hours, parsed.minutes, 0)
+    endDate = new Date(ev.date)
+    endDate.setHours(parsed.hours, parsed.minutes + 30, 0)
   } else {
-    // All-day event (medicine reminders, etc.)
+    // All-day event
     startDate.setHours(9, 0, 0)
     endDate.setHours(9, 30, 0)
   }

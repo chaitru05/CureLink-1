@@ -255,17 +255,45 @@ async function seed() {
     completedAppointments.push(appt);
   }
 
-  // 5 confirmed upcoming appointments
-  for (let i = 0; i < 5; i++) {
+  // 3 TODAY's confirmed appointments (shows in "Today's Appointments" stat)
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+  const todaySlots = ["10:00 AM - 10:30 AM", "11:00 AM - 11:30 AM", "02:00 PM - 02:30 PM"];
+  for (let i = 0; i < 3; i++) {
+    await Appointment.create({
+      patientId: patients[i]._id,
+      doctorId: doctors[0]._id,
+      appointmentDate: todayDate,
+      timeSlot: todaySlots[i],
+      consultationType: consultationTypes[i],
+      reasonForVisit: ["Follow-up for blood tests", "Routine BP check", "Medication review"][i],
+      status: "confirmed"
+    });
+  }
+
+  // 10 confirmed upcoming appointments (next 1-7 days, spread across patients)
+  const upcomingReasons = [
+    "Back pain after lifting heavy objects",
+    "Numbness in hands, need neurological evaluation",
+    "Annual physical examination",
+    "Chest pain during exercise",
+    "Joint pain in knees, difficulty walking",
+    "Acne treatment consultation",
+    "Dizziness and frequent fainting spells",
+    "Post-surgery follow-up",
+    "Difficulty sleeping, fatigue",
+    "Stomach pain and bloating after meals"
+  ];
+  for (let i = 0; i < 10; i++) {
     const patient = patients[i];
     const doctor = doctors[i % doctors.length];
-    const daysAhead = Math.floor(Math.random() * 7) + 1;
+    const daysAhead = (i % 7) + 1;
     const date = new Date();
     date.setDate(date.getDate() + daysAhead);
     date.setHours(0, 0, 0, 0);
 
     // Mark slot as booked
-    const slotIndex = i;
+    const slotIndex = i % 10;
     const startOfDay = new Date(date);
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
@@ -276,42 +304,42 @@ async function seed() {
       { arrayFilters: [{ "day.date": { $gte: startOfDay, $lte: endOfDay } }] }
     );
 
-    const timeSlots = ["09:00 AM - 09:30 AM", "09:30 AM - 10:00 AM", "10:00 AM - 10:30 AM", "10:30 AM - 11:00 AM", "11:00 AM - 11:30 AM"];
+    const timeSlots = ["09:00 AM - 09:30 AM", "09:30 AM - 10:00 AM", "10:00 AM - 10:30 AM", "10:30 AM - 11:00 AM", "11:00 AM - 11:30 AM", "11:30 AM - 12:00 PM", "02:00 PM - 02:30 PM", "02:30 PM - 03:00 PM", "03:00 PM - 03:30 PM", "03:30 PM - 04:00 PM"];
     await Appointment.create({
       patientId: patient._id,
       doctorId: doctor._id,
       appointmentDate: date,
       timeSlot: timeSlots[slotIndex],
       consultationType: consultationTypes[i % 3],
-      reasonForVisit: reasons[i + 5],
+      reasonForVisit: upcomingReasons[i],
       status: "confirmed"
     });
   }
 
-  // 3 pending appointments
-  for (let i = 0; i < 3; i++) {
+  // 5 pending appointments
+  for (let i = 0; i < 5; i++) {
     const patient = patients[i + 5];
-    const doctor = doctors[i + 3];
-    const daysAhead = Math.floor(Math.random() * 5) + 2;
+    const doctor = doctors[(i + 2) % doctors.length];
+    const daysAhead = (i % 5) + 2;
     const date = new Date();
     date.setDate(date.getDate() + daysAhead);
     date.setHours(0, 0, 0, 0);
 
-    const timeSlots = ["02:00 PM - 02:30 PM", "02:30 PM - 03:00 PM", "03:00 PM - 03:30 PM"];
+    const timeSlots = ["02:00 PM - 02:30 PM", "02:30 PM - 03:00 PM", "03:00 PM - 03:30 PM", "03:30 PM - 04:00 PM", "09:00 AM - 09:30 AM"];
     await Appointment.create({
       patientId: patient._id,
       doctorId: doctor._id,
       appointmentDate: date,
       timeSlot: timeSlots[i],
-      consultationType: "In-Person",
-      reasonForVisit: reasons[i + 10],
+      consultationType: i % 2 === 0 ? "In-Person" : "Video Call",
+      reasonForVisit: ["Acne treatment consultation", "Dizziness and frequent fainting spells", "Post-surgery follow-up", "Difficulty sleeping, fatigue", "General wellness check"][i],
       status: "pending"
     });
   }
 
-  // 2 cancelled appointments
-  for (let i = 0; i < 2; i++) {
-    const patient = patients[i + 8];
+  // 3 cancelled appointments
+  for (let i = 0; i < 3; i++) {
+    const patient = patients[i + 7];
     const doctor = doctors[i];
     const daysAgo = Math.floor(Math.random() * 10) + 1;
     const date = new Date();
@@ -322,14 +350,14 @@ async function seed() {
       patientId: patient._id,
       doctorId: doctor._id,
       appointmentDate: date,
-      timeSlot: "03:30 PM - 04:00 PM",
+      timeSlot: ["03:30 PM - 04:00 PM", "09:00 AM - 09:30 AM", "11:00 AM - 11:30 AM"][i],
       consultationType: "Video Call",
-      reasonForVisit: reasons[i + 13],
+      reasonForVisit: ["Difficulty sleeping, fatigue", "Stomach pain and bloating after meals", "Skin allergy follow-up"][i],
       status: "cancelled"
     });
   }
 
-  console.log("📅 25 Appointments created (15 completed, 5 confirmed, 3 pending, 2 cancelled)");
+  console.log("📅 36 Appointments created (15 completed, 3 today, 10 upcoming, 5 pending, 3 cancelled)");
 
   // ==================== MEDICAL RECORDS ====================
   const diagnoses = [

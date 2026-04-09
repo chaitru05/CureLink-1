@@ -57,22 +57,41 @@ const [selectedAppointment, setSelectedAppointment] = useState(null)
 
   // Calendar
   const [calendarEvents, setCalendarEvents] = useState([])
+  // Helper to parse AM/PM time strings like "09:00 AM" → { hours: 9, minutes: 0 }
+  const parseAMPM = (timeStr) => {
+    if (!timeStr) return { hours: 0, minutes: 0 }
+    const parts = timeStr.trim().match(/(\d+):(\d+)\s*(AM|PM)/i)
+    if (!parts) {
+      // Fallback: try 24h format
+      const [h, m] = timeStr.split(":")
+      return { hours: parseInt(h) || 0, minutes: parseInt(m) || 0 }
+    }
+    let hours = parseInt(parts[1])
+    const minutes = parseInt(parts[2])
+    const period = parts[3].toUpperCase()
+    if (period === "PM" && hours !== 12) hours += 12
+    if (period === "AM" && hours === 12) hours = 0
+    return { hours, minutes }
+  }
+
   const calendarData = calendarEvents.map(ev => {
-  const [start, end] = ev.time.split("-")
+  if (!ev.time || !ev.time.includes("-")) {
+    const startDate = new Date(ev.date)
+    startDate.setHours(9, 0, 0)
+    const endDate = new Date(ev.date)
+    endDate.setHours(9, 30, 0)
+    return { title: ev.title, start: startDate, end: endDate }
+  }
 
-  const startDate = moment(ev.date)
-    .set({
-      hour: parseInt(start.split(":")[0]),
-      minute: parseInt(start.split(":")[1])
-    })
-    .toDate()
+  const [start, end] = ev.time.split("-").map(t => t.trim())
+  const startParsed = parseAMPM(start)
+  const endParsed = parseAMPM(end)
 
-  const endDate = moment(ev.date)
-    .set({
-      hour: parseInt(end.split(":")[0]),
-      minute: parseInt(end.split(":")[1])
-    })
-    .toDate()
+  const startDate = new Date(ev.date)
+  startDate.setHours(startParsed.hours, startParsed.minutes, 0)
+
+  const endDate = new Date(ev.date)
+  endDate.setHours(endParsed.hours, endParsed.minutes, 0)
 
   return {
     title: ev.title,
@@ -131,12 +150,15 @@ const [selectedAppointment, setSelectedAppointment] = useState(null)
       }
 
       const today = new Date().toISOString().split("T")[0]
-      const todayApps = appointmentsData.filter((apt) => apt.date === today && apt.status !== "cancelled")
+      const todayApps = appointmentsData.filter((apt) => {
+        const aptDate = new Date(apt.appointmentDate || apt.date).toISOString().split("T")[0]
+        return aptDate === today && apt.status !== "cancelled"
+      })
       const upcoming = appointmentsData.filter(
-        (apt) => new Date(apt.date) > new Date() && apt.status !== "cancelled" && apt.status !== "completed"
+        (apt) => new Date(apt.appointmentDate || apt.date) > new Date() && apt.status !== "cancelled" && apt.status !== "completed"
       )
       const completed = appointmentsData.filter((apt) => apt.status === "completed")
-      const uniquePatients = new Set(completed.map((apt) => apt.patient?.id || apt.patientId)).size
+      const uniquePatients = new Set(completed.map((apt) => apt.patient?.id || apt.patientId?._id || apt.patientId)).size
 
       setStats({
         todayAppointments: todayApps.length,
