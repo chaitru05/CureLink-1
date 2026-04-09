@@ -27,6 +27,7 @@ export default function DoctorDashboard() {
 
   // Appointments
   const [appointments, setAppointments] = useState([])
+  const [overviewAppointments, setOverviewAppointments] = useState([])
 
   // Availability
   const [selectedDate, setSelectedDate] = useState("")
@@ -166,6 +167,10 @@ const [selectedAppointment, setSelectedAppointment] = useState(null)
         completedConsultations: completed.length,
         totalPatientsTreated: uniquePatients,
       })
+
+      // Save for overview display
+      const displayAppts = [...todayApps, ...upcoming].slice(0, 5)
+      setOverviewAppointments(displayAppts)
     } catch (err) {
       console.error("Unexpected error loading overview:", err)
     } finally {
@@ -549,6 +554,84 @@ const handleRemoveSlot = async (slotId) => {
                   <div className="stat-content">
                     <p className="stat-label">Total Patients Treated</p>
                     <p className="stat-value">{stats.totalPatientsTreated}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Overview Content Below Stats */}
+              <div className="overview-grid">
+                {/* Today's / Upcoming Patients */}
+                <div className="overview-card">
+                  <div className="overview-card-header">
+                    <h3>Today & Upcoming Patients</h3>
+                    <button className="link-button" onClick={() => setActiveSection("appointments")}>View All →</button>
+                  </div>
+                  <div className="overview-card-body">
+                    {overviewAppointments.length === 0 ? (
+                      <div className="empty-state-small">
+                        <p>No appointments scheduled</p>
+                      </div>
+                    ) : (
+                      overviewAppointments.map((apt) => (
+                        <div key={apt._id} className="overview-list-item">
+                          <div className="overview-item-icon appointment-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 7a4 4 0 108 0 4 4 0 00-8 0z" />
+                            </svg>
+                          </div>
+                          <div className="overview-item-content">
+                            <p className="overview-item-title">{apt.patientId?.name || "Patient"}</p>
+                            <p className="overview-item-subtitle">
+                              {new Date(apt.appointmentDate || apt.date).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} • {apt.timeSlot} • {apt.consultationType || "Consultation"}
+                            </p>
+                          </div>
+                          <span className={`mini-badge badge-${apt.status}`}>{apt.status}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="overview-card">
+                  <div className="overview-card-header">
+                    <h3>Quick Actions</h3>
+                  </div>
+                  <div className="overview-card-body">
+                    <div className="quick-actions-grid" style={{ padding: '0.5rem 0' }}>
+                      <button className="quick-action-card" onClick={() => setActiveSection("appointments")}>
+                        <div className="quick-action-icon qa-book">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <span>Appointments</span>
+                      </button>
+                      <button className="quick-action-card" onClick={() => setActiveSection("availability")}>
+                        <div className="quick-action-icon qa-calendar">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <span>Availability</span>
+                      </button>
+                      <button className="quick-action-card" onClick={() => setActiveSection("records")}>
+                        <div className="quick-action-icon qa-records">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <span>Patient Records</span>
+                      </button>
+                      <button className="quick-action-card" onClick={() => setActiveSection("calendar")}>
+                        <div className="quick-action-icon qa-medicines">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <span>Calendar</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

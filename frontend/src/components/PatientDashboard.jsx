@@ -49,6 +49,10 @@ export default function PatientDashboard() {
   // Calendar
   const [calendarEvents, setCalendarEvents] = useState([])
 
+  // Overview data for display
+  const [overviewAppointments, setOverviewAppointments] = useState([])
+  const [overviewMedicines, setOverviewMedicines] = useState([])
+
   // Notifications
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -155,6 +159,10 @@ export default function PatientDashboard() {
         medicinesToday: medicinesData.length || 0,
         totalRecords: recordsData.length || 0,
       })
+
+      // Save for overview display
+      setOverviewAppointments(upcoming.slice(0, 4))
+      setOverviewMedicines(medicinesData.slice(0, 4))
     } catch (err) {
       console.error("Unexpected error loading overview:", err)
       // Don't set error for overview - it's non-critical
@@ -610,6 +618,119 @@ export default function PatientDashboard() {
                     <p className="stat-label">Total Medical Records</p>
                     <p className="stat-value">{stats.totalRecords}</p>
                   </div>
+                </div>
+              </div>
+
+              {/* Overview Content Below Stats */}
+              <div className="overview-grid">
+                {/* Upcoming Appointments */}
+                <div className="overview-card">
+                  <div className="overview-card-header">
+                    <h3>Upcoming Appointments</h3>
+                    <button className="link-button" onClick={() => setActiveSection("appointments")}>View All →</button>
+                  </div>
+                  <div className="overview-card-body">
+                    {overviewAppointments.length === 0 ? (
+                      <div className="empty-state-small">
+                        <p>No upcoming appointments</p>
+                        <button className="primary-button-sm" onClick={() => setActiveSection("book")}>Book Now</button>
+                      </div>
+                    ) : (
+                      overviewAppointments.map((apt) => (
+                        <div key={apt._id} className="overview-list-item">
+                          <div className="overview-item-icon appointment-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <div className="overview-item-content">
+                            <p className="overview-item-title">{apt.doctorId?.name || "Doctor"}</p>
+                            <p className="overview-item-subtitle">
+                              {new Date(apt.appointmentDate || apt.date).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} • {apt.timeSlot}
+                            </p>
+                          </div>
+                          <span className={`mini-badge badge-${apt.status}`}>{apt.status}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Today's Medicines */}
+                <div className="overview-card">
+                  <div className="overview-card-header">
+                    <h3>Today's Medicines</h3>
+                    <button className="link-button" onClick={() => setActiveSection("medicines")}>View All →</button>
+                  </div>
+                  <div className="overview-card-body">
+                    {overviewMedicines.length === 0 ? (
+                      <div className="empty-state-small">
+                        <p>No medicines scheduled today</p>
+                      </div>
+                    ) : (
+                      overviewMedicines.map((med) => (
+                        <div key={med._id} className="overview-list-item">
+                          <div className={`overview-item-icon ${med.isTaken ? 'medicine-taken-icon' : 'medicine-pending-icon'}`}>
+                            {med.isTaken ? (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            )}
+                          </div>
+                          <div className="overview-item-content">
+                            <p className="overview-item-title">{med.medicineName}</p>
+                            <p className="overview-item-subtitle">{med.dosage} • {med.reminderTime}</p>
+                          </div>
+                          <span className={`mini-badge ${med.isTaken ? 'badge-completed' : 'badge-pending'}`}>
+                            {med.isTaken ? '✓ Taken' : 'Pending'}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="quick-actions">
+                <h3 className="quick-actions-title">Quick Actions</h3>
+                <div className="quick-actions-grid">
+                  <button className="quick-action-card" onClick={() => setActiveSection("book")}>
+                    <div className="quick-action-icon qa-book">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                    <span>Book Appointment</span>
+                  </button>
+                  <button className="quick-action-card" onClick={() => setActiveSection("records")}>
+                    <div className="quick-action-icon qa-records">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <span>Medical Records</span>
+                  </button>
+                  <button className="quick-action-card" onClick={() => setActiveSection("calendar")}>
+                    <div className="quick-action-icon qa-calendar">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <span>View Calendar</span>
+                  </button>
+                  <button className="quick-action-card" onClick={() => setActiveSection("medicines")}>
+                    <div className="quick-action-icon qa-medicines">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                    </div>
+                    <span>Medicines</span>
+                  </button>
                 </div>
               </div>
             </div>
